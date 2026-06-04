@@ -1344,7 +1344,8 @@ async function runAgent(id){
         max_tokens:1500,system:ag.prompt,messages:[{role:'user',content:task}]})
     });
     const data=await res.json();
-    const txt=data.content?.[0]?.text||'No response.';
+    console.log('API response:', JSON.stringify(data).substring(0,200));
+    const txt=data.content?.[0]?.text||(data.error?'API Error: '+data.error.message:'No response.');
     if(rt){rt.className='resp-txt';rt.textContent=txt;}
     if(!ST.hist[id])ST.hist[id]=[];
     ST.hist[id].unshift({task,resp:txt,ts:Date.now()});
@@ -1352,7 +1353,7 @@ async function runAgent(id){
     if(window._saveHistory){showSaving();await window._saveHistory(id);}
     if(id==='ceo'&&window.sendTG){await sendTG(txt);if(tn)tn.classList.add('on');}
     refreshHist(id);
-  }catch(e){if(rt){rt.className='resp-txt';rt.textContent='Error: '+e.message;}}
+  }catch(e){if(rt){rt.className='resp-txt';rt.textContent='Error: '+e.message+' — '+e.toString();}}
   finally{ST.running.delete(id);if(btn)btn.disabled=false;if(bico)bico.textContent='▶';buildSB();}
 }
 window.runAgent=runAgent;
