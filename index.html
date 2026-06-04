@@ -150,10 +150,7 @@ function onOut() {
   if(app) app.style.display='none';
 }
 
-window._googleIn = async () => {
-  try { window._googleIn(); }
-  catch(e) { document.getElementById('auth-err').textContent=e.message; }
-};
+// sign in handled by _googleIn above
 </script>
 
 <!-- Telegram -->
