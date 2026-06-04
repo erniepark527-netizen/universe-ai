@@ -100,33 +100,29 @@ window.addEventListener('load', function() {
 
 
 function startSync() {
-  unsubs.forEach(u=>u()); unsubs=[];
-  const q = db.collection('users').doc(uid).collection('history').orderBy('updatedAt','desc').limit(200);
-  unsubs.push(q.onSnapshot(snap => {
-    snap.docChanges().forEach(ch => {
-      const id=ch.doc.id, d=ch.doc.data();
-      if(ch.type==='removed'){delete ST.hist[id];return;}
-      ST.hist[id]=d.entries||[];
-      if(ST.agentId===id) refreshHist(id);
-      buildSB();
-    });
-  }));
-  unsubs.push(db.collection('users').doc(uid).collection('meta').doc('inputs').onSnapshot(snap => {
-    if(snap.exists()){
-      Object.assign(ST.inputs, snap.data());
-      const ta=document.getElementById('ta-'+ST.agentId);
-      if(ta&&!ta.dataset.f) ta.value=ST.inputs[ST.agentId]||'';
-    }
-  }));
+  // Load from localStorage
+  try {
+    var hist = JSON.parse(localStorage.getItem('uai_hist') || '{}');
+    ST.hist = hist;
+    var inputs = JSON.parse(localStorage.getItem('uai_inputs') || '{}');
+    ST.inputs = inputs;
+  } catch(e) {}
+  buildSB();
 }
 
-window._saveHistoryory = async id => {
-  if(!uid) return;
-  await db.collection('users').doc(uid).collection('history').doc(id).set({entries:ST.hist[id]||[],updatedAt:new Date().toISOString()});
+window._saveHistory = async function(id) {
+  try {
+    var hist = JSON.parse(localStorage.getItem('uai_hist') || '{}');
+    hist[id] = ST.hist[id] || [];
+    localStorage.setItem('uai_hist', JSON.stringify(hist));
+  } catch(e) {}
 };
-window._saveInput = async (id,v) => {
-  if(!uid) return;
-  await db.collection('users').doc(uid).collection('meta').doc('inputs').set({[id]:v},{merge:true});
+window._saveInput = async function(id, v) {
+  try {
+    var inputs = JSON.parse(localStorage.getItem('uai_inputs') || '{}');
+    inputs[id] = v;
+    localStorage.setItem('uai_inputs', JSON.stringify(inputs));
+  } catch(e) {}
 };
 window._signOut = async () => { unsubs.forEach(u=>u()); localStorage.removeItem("uai_logged_in"); };
 
