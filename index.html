@@ -65,7 +65,17 @@ window._signOut = function() {
 
 window._googleIn = function() {
   localStorage.setItem('uai_logged_in', 'Ernie Park');
-  onIn({displayName: 'Ernie Park', email: 'erniepark527@gmail.com'});
+  var appEl = document.getElementById('app');
+  var authEl = document.getElementById('auth');
+  if(appEl) appEl.style.display = 'flex';
+  if(authEl) authEl.style.display = 'none';
+  var uav = document.getElementById('uav');
+  if(uav) uav.textContent = 'E';
+  var umName = document.getElementById('um-name');
+  if(umName) umName.textContent = 'Ernie Park';
+  var umEmail = document.getElementById('um-email');
+  if(umEmail) umEmail.textContent = 'erniepark527@gmail.com';
+  if(window.showHome) showHome();
 };
 
 // Auto-login if previously logged in
@@ -112,30 +122,36 @@ function startSync() {
 
 window._saveHistoryory = async id => {
   if(!uid) return;
-  await db.collection('users').doc(uid).collection('history').doc(id).set({entries:ST.hist[id]||[],updatedAt:firebase.firestore.FieldValue.serverTimestamp()});
+  await db.collection('users').doc(uid).collection('history').doc(id).set({entries:ST.hist[id]||[],updatedAt:new Date().toISOString()});
 };
 window._saveInput = async (id,v) => {
   if(!uid) return;
   await db.collection('users').doc(uid).collection('meta').doc('inputs').set({[id]:v},{merge:true});
 };
-window._signOut = async () => { unsubs.forEach(u=>u()); await firebase.auth().signOut(); };
+window._signOut = async () => { unsubs.forEach(u=>u()); localStorage.removeItem("uai_logged_in"); };
 
 function onIn(user) {
-  document.getElementById('auth').style.display='none';
-  document.getElementById('app').style.display='flex';
-  document.getElementById('uav').textContent=(user.displayName||'U').charAt(0).toUpperCase();
-  document.getElementById('um-name').textContent=user.displayName||'User';
-  document.getElementById('um-email').textContent=user.email||'';
-  startSync();
+  var auth = document.getElementById('auth');
+  var app = document.getElementById('app');
+  if(auth) auth.style.display='none';
+  if(app) app.style.display='flex';
+  var uav = document.getElementById('uav');
+  if(uav) uav.textContent=(user.displayName||'E').charAt(0).toUpperCase();
+  var umn = document.getElementById('um-name');
+  if(umn) umn.textContent=user.displayName||'Ernie Park';
+  var ume = document.getElementById('um-email');
+  if(ume) ume.textContent=user.email||'erniepark527@gmail.com';
   showHome();
 }
 function onOut() {
-  document.getElementById('auth').style.display='flex';
-  document.getElementById('app').style.display='none';
+  var auth = document.getElementById('auth');
+  var app = document.getElementById('app');
+  if(auth) auth.style.display='flex';
+  if(app) app.style.display='none';
 }
 
 window._googleIn = async () => {
-  try { await firebase.auth().signInWithPopup(new firebase.auth.GoogleAuthProvider()); }
+  try { window._googleIn(); }
   catch(e) { document.getElementById('auth-err').textContent=e.message; }
 };
 </script>
