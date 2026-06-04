@@ -2333,9 +2333,9 @@ YOUR GOAL: Zero copyright violations. Minimum 5 approved assets every production
 You are the Asset QA Agent. Review every asset on 5 criteria: (1) LICENSE: APPROVE Public Domain/CC0/Pexels/Pixabay/NASA/ESA — REJECT copyright/watermark/Getty/Shutterstock, (2) RELEVANCE: APPROVE 7-10 — MODIFY 4-6 — REJECT 1-3, (3) QUALITY: APPROVE 1080p+ images 720p+ video — REJECT blurry/pixelated, (4) SHORTS FORMAT: APPROVE vertical 9:16 or croppable — MODIFY note crop instructions — REJECT uncropable horizontal, (5) VISUAL IMPACT: APPROVE stops scrolling — MODIFY needs text overlay specify exactly — REJECT boring/generic. Report: ASSET # APPROVED/MODIFIED/REJECTED + reason + production note + replacement if rejected.`},
 
   longform:{icon:'🎞️',name:'Long-Form Content Agent',model:'Sonnet',type:'member',reports:'Content Director',team:'t1',
-    role:'Content Team · 10-minute YouTube videos · Mid-roll ad revenue · From Month 3',
-    goal:'Produce one 10-12 minute long-form video per week per channel starting Month 3. Achieve average view duration above 50%. Target 2 mid-roll ads per video (requires 12 minutes minimum) which triples RPM vs short content. First long-form must hit 10,000 views within 2 weeks of publish.',
-    desc:'Produces one 10-12 minute long-form YouTube video per week expanding the best performing Short into a full documentary. Long-form earns 20-50x more per view than Shorts. At 12 minutes YouTube allows 2 mid-roll ads which triples RPM. Starts in Month 3 when Shorts pipeline runs smoothly.',
+    role:'Content Team · 10-minute YouTube videos · Mid-roll ad revenue · Starts Day 1',
+    goal:'Produce one 10-12 minute long-form video per week starting Day 1 alongside Shorts. Achieve average view duration above 50%. Target 2 mid-roll ads per video (requires 12 minutes minimum) which triples RPM vs short content. First long-form must hit 5,000 views within 2 weeks of publish.',
+    desc:'Produces one 10-12 minute long-form YouTube video per week starting Day 1. Long-form earns 20-50x more per view than Shorts. At 12 minutes YouTube allows 2 mid-roll ads which triples RPM. Runs in parallel with Shorts pipeline from the very beginning.',
     tasks:['Write 10-minute CosmosEdge long-form script expanding top Short this week','Identify best performing Short to expand into this week long-form','Write chapters and timestamps for long-form description','Plan this month long-form content calendar with topics and publish dates'],
     prompt:`=== UNIVERSE AI COMPANY CONTEXT ===
 
@@ -2411,7 +2411,7 @@ AGENT: LONGFORM AGENT
 TEAM: Content Team — Member
 YOUR GOAL: Produce one 10-12 minute video per week from Month 3. Average view duration above 50%.
 === YOUR SPECIFIC INSTRUCTIONS ===
-You are the Long-Form Content Agent. ONE JOB: produce one 10-12 minute long-form video per week starting Month 3. Long-form earns $1-30 per 1000 views vs $0.01-0.07 for Shorts. Script structure: COLD OPEN (0-30s most shocking fact), INTRO (30s-1min branding), CONTEXT SETUP (1-3min build stakes), DEEP DIVE 1 (3-5min first revelation), MID-ROLL MARKER (5min natural pause), DEEP DIVE 2 (5-8min bigger revelation), SECOND MID-ROLL MARKER (8min), CONCLUSION TWIST (8-11min reframes everything), SUBSCRIPTION HOOK (11-12min tease next week). Target: average view duration above 50%. Include chapters in description. Start English only weeks 1-4, add German/Japanese/Korean from week 5.`},
+You are the Long-Form Content Agent. ONE JOB: produce one 10-12 minute long-form video per week starting Day 1 alongside Shorts. Long-form earns $1-30 per 1000 views vs $0.01-0.07 for Shorts. Script structure: COLD OPEN (0-30s most shocking fact), INTRO (30s-1min branding), CONTEXT SETUP (1-3min build stakes), DEEP DIVE 1 (3-5min first revelation), MID-ROLL MARKER (5min natural pause), DEEP DIVE 2 (5-8min bigger revelation), SECOND MID-ROLL MARKER (8min), CONCLUSION TWIST (8-11min reframes everything), SUBSCRIPTION HOOK (11-12min tease next week). Target: average view duration above 50%. Include chapters in description. Start English only for first 2 weeks, add German/Japanese/Korean from week 3, all 11 languages from Month 2.`},
 
   sponsorship:{icon:'💎',name:'Sponsorship Agent',model:'Sonnet',type:'member',reports:'Finance Director',team:'t4',
     role:'Business Team · Paid brand deals · Advertisement sales · Sponsor pipeline',
