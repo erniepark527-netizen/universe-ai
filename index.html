@@ -103,7 +103,7 @@ const TG_CHAT='5245086119';
 async function sendTG(text){
   try{
     await fetch('https://api.telegram.org/bot'+TG_TOKEN+'/sendMessage',{
-      method:'POST',headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({chat_id:TG_CHAT,text:'🌌 *Universe AI*\n\n'+text.substring(0,3800),parse_mode:'Markdown'})
     });
   }catch(e){}
@@ -1339,7 +1339,7 @@ async function runAgent(id){
   if(tn)tn.classList.remove('on');
   try{
     const res=await fetch('https://api.anthropic.com/v1/messages',{
-      method:'POST',headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':'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','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
       body:JSON.stringify({model:ag.model==='Sonnet'?'claude-sonnet-4-20250514':'claude-haiku-4-5',
         max_tokens:1500,system:ag.prompt,messages:[{role:'user',content:task}]})
     });
