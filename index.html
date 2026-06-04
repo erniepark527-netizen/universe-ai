@@ -1,1 +1,1429 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="theme-color" content="#060810">
+<title>Universe AI</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+
+<!-- Font scale: defined before everything -->
+<script>
+var _fs = 16;
+try { _fs = parseFloat(localStorage.getItem('uai_fs') || '16'); } catch(e){}
+document.documentElement.style.fontSize = _fs + 'px';
+function uaiPlus()  { _fs=Math.min(30,_fs+2); document.documentElement.style.fontSize=_fs+'px'; try{localStorage.setItem('uai_fs',_fs);}catch(e){} }
+function uaiMinus() { _fs=Math.max(10,_fs-2); document.documentElement.style.fontSize=_fs+'px'; try{localStorage.setItem('uai_fs',_fs);}catch(e){} }
+
+// API Key - stored in browser only, never in code
+window._UAI_KEY = '';
+try { window._UAI_KEY = localStorage.getItem('uai_key') || ''; } catch(e){}
+function showKeyDialog() {
+  var current = localStorage.getItem('uai_key') || '';
+  var k = prompt('Paste your Claude API key here. It saves in this browser only:', current ? '(key already saved - paste new key to update)' : '');
+  if (k && k.indexOf('sk-ant') === 0) {
+    window._UAI_KEY = k.trim();
+    try { localStorage.setItem('uai_key', k.trim()); } catch(e){}
+    alert('API key saved! All 25 agents are now ready.');
+    var m = document.getElementById('umenu');
+    if(m) m.classList.remove('on');
+  } else if (k) {
+    alert('Invalid key. Must start with sk-ant-...');
+  }
+}
+</script>
+
+<!-- Firebase -->
+<!-- No external Firebase needed - using localStorage -->
+<script>
+// Simple local storage sync - no external dependencies
+var uid = 'local_user', unsubs = [];
+
+window._saveHistory = async function(id) {
+  try {
+    var hist = JSON.parse(localStorage.getItem('uai_hist') || '{}');
+    hist[id] = ST.hist[id] || [];
+    localStorage.setItem('uai_hist', JSON.stringify(hist));
+  } catch(e) {}
+};
+
+window._saveInput = async function(id, v) {
+  try {
+    var inputs = JSON.parse(localStorage.getItem('uai_inputs') || '{}');
+    inputs[id] = v;
+    localStorage.setItem('uai_inputs', JSON.stringify(inputs));
+  } catch(e) {}
+};
+
+window._signOut = function() {
+  localStorage.removeItem('uai_logged_in');
+  document.getElementById('auth').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+};
+
+window._googleIn = function() {
+  localStorage.setItem('uai_logged_in', 'Ernie Park');
+  var appEl = document.getElementById('app');
+  var authEl = document.getElementById('auth');
+  if(appEl) appEl.style.display = 'flex';
+  if(authEl) authEl.style.display = 'none';
+  var uav = document.getElementById('uav');
+  if(uav) uav.textContent = 'E';
+  var umName = document.getElementById('um-name');
+  if(umName) umName.textContent = 'Ernie Park';
+  var umEmail = document.getElementById('um-email');
+  if(umEmail) umEmail.textContent = 'erniepark527@gmail.com';
+  if(window.showHome) showHome();
+};
+
+// Auto-login if previously logged in
+window.addEventListener('load', function() {
+  var name = localStorage.getItem('uai_logged_in');
+  if (name) {
+    onIn({displayName: name, email: 'erniepark527@gmail.com'});
+  } else {
+    document.getElementById('auth').style.display = 'flex';
+    document.getElementById('app').style.display = 'none';
+  }
+  // Restore history and inputs from localStorage
+  try {
+    var hist = JSON.parse(localStorage.getItem('uai_hist') || '{}');
+    ST.hist = hist;
+    var inputs = JSON.parse(localStorage.getItem('uai_inputs') || '{}');
+    ST.inputs = inputs;
+  } catch(e) {}
+});
+
+
+
+
+function startSync() {
+  // Load from localStorage
+  try {
+    var hist = JSON.parse(localStorage.getItem('uai_hist') || '{}');
+    ST.hist = hist;
+    var inputs = JSON.parse(localStorage.getItem('uai_inputs') || '{}');
+    ST.inputs = inputs;
+  } catch(e) {}
+  buildSB();
+}
+
+window._saveHistory = async function(id) {
+  try {
+    var hist = JSON.parse(localStorage.getItem('uai_hist') || '{}');
+    hist[id] = ST.hist[id] || [];
+    localStorage.setItem('uai_hist', JSON.stringify(hist));
+  } catch(e) {}
+};
+window._saveInput = async function(id, v) {
+  try {
+    var inputs = JSON.parse(localStorage.getItem('uai_inputs') || '{}');
+    inputs[id] = v;
+    localStorage.setItem('uai_inputs', JSON.stringify(inputs));
+  } catch(e) {}
+};
+window._signOut = async () => { unsubs.forEach(u=>u()); localStorage.removeItem("uai_logged_in"); };
+
+function onIn(user) {
+  var auth = document.getElementById('auth');
+  var app = document.getElementById('app');
+  if(auth) auth.style.display='none';
+  if(app) app.style.display='flex';
+  var uav = document.getElementById('uav');
+  if(uav) uav.textContent=(user.displayName||'E').charAt(0).toUpperCase();
+  var umn = document.getElementById('um-name');
+  if(umn) umn.textContent=user.displayName||'Ernie Park';
+  var ume = document.getElementById('um-email');
+  if(ume) ume.textContent=user.email||'erniepark527@gmail.com';
+  showHome();
+}
+function onOut() {
+  var auth = document.getElementById('auth');
+  var app = document.getElementById('app');
+  if(auth) auth.style.display='flex';
+  if(app) app.style.display='none';
+}
+
+// sign in handled by _googleIn above
+</script>
+
+<!-- Telegram -->
+<script>
+const TG_TOKEN='8675284897:AAFiCg23eTnVCtYv05Zoe1ESzKWGV9L2xzM';
+const TG_CHAT='5245086119';
+async function sendTG(text){
+  try{
+    await fetch('https://api.telegram.org/bot'+TG_TOKEN+'/sendMessage',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':window._UAI_KEY||localStorage.getItem('uai_key')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({chat_id:TG_CHAT,text:'🌌 *Universe AI*\n\n'+text.substring(0,3800),parse_mode:'Markdown'})
+    });
+  }catch(e){}
+}
+</script>
+
+<style>
+:root{
+  --bg:#060810; --bg2:#0C0E1C; --bg3:#12152A; --bg4:#181B32;
+  --brd:rgba(255,255,255,.08); --brd2:rgba(255,255,255,.16); --brd3:rgba(255,255,255,.28);
+  --t1:#FFFFFF; --t2:#E2E6FF; --t3:#D8DEFC; --t4:#C0C8E8;
+  --c1:#4F8EF7; --c1a:rgba(79,142,247,.15);
+  --c2:#2DD4A0; --c2a:rgba(45,212,160,.15);
+  --c3:#F7A44F; --c3a:rgba(247,164,79,.15);
+  --c4:#F74F8E; --c4a:rgba(247,79,142,.15);
+  --cp:#A855F7; --cpa:rgba(168,85,247,.15);
+  --cy:#F5C842; --cya:rgba(245,200,66,.15);
+  --sb:240px; --hh:58px; --nh:62px;
+  --safe:env(safe-area-inset-bottom,0px);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden;background:var(--bg);
+  font-family:'Syne',sans-serif;color:var(--t1)}
+body::before{content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background:radial-gradient(ellipse 80% 50% at 50% -10%,rgba(79,142,247,.08),transparent),
+             radial-gradient(ellipse 60% 40% at 80% 80%,rgba(168,85,247,.06),transparent)}
+
+/* ── AUTH ── */
+#auth{position:fixed;inset:0;z-index:200;display:flex;align-items:center;
+  justify-content:center;background:var(--bg);padding:20px;flex-direction:column}
+.auth-card{background:var(--bg2);border:1px solid var(--brd2);border-radius:24px;
+  padding:32px 28px;max-width:360px;width:100%;text-align:center}
+.auth-logo{font-size:48px;margin-bottom:12px}
+.auth-title{font-size:26px;font-weight:800;letter-spacing:-.03em;margin-bottom:6px}
+.auth-title span{background:linear-gradient(120deg,var(--c1),var(--cp));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.auth-sub{font-size:14px;color:var(--t3);line-height:1.7;margin-bottom:24px}
+.auth-btn{width:100%;padding:14px;border-radius:12px;border:none;cursor:pointer;
+  font-family:'Syne',sans-serif;font-size:15px;font-weight:700;
+  display:flex;align-items:center;justify-content:center;gap:10px;
+  background:#fff;color:#1a1a1a;transition:opacity .2s}
+.auth-btn:hover{opacity:.88}
+#auth-err{font-size:12px;color:#f87171;margin-top:10px;font-family:'JetBrains Mono',monospace}
+.auth-badges{display:flex;gap:6px;justify-content:center;flex-wrap:wrap;margin-top:16px}
+.abadge{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;
+  font-family:'JetBrains Mono',monospace;border:1px solid}
+
+/* ── APP SHELL ── */
+#app{position:fixed;inset:0;display:none;flex-direction:column;z-index:1}
+
+/* ── HEADER ── */
+.hdr{height:var(--hh);display:flex;align-items:center;padding:0 14px;gap:9px;
+  border-bottom:1px solid var(--brd);background:rgba(6,8,16,.92);
+  backdrop-filter:blur(16px);flex-shrink:0;z-index:20}
+.hdr-back{width:34px;height:34px;border-radius:9px;border:1px solid var(--brd2);
+  background:var(--bg2);display:none;align-items:center;justify-content:center;
+  cursor:pointer;font-size:16px;flex-shrink:0;color:var(--t1)}
+.hdr-logo{width:30px;height:30px;border-radius:8px;flex-shrink:0;
+  background:linear-gradient(135deg,var(--c1),var(--cp));
+  display:flex;align-items:center;justify-content:center;font-size:14px}
+.hdr-info{flex:1;min-width:0}
+.hdr-n{font-size:14px;font-weight:700;color:var(--t1);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hdr-s{font-size:10px;color:#D4D8F0;font-family:'JetBrains Mono',monospace;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis;margin-top:1px}
+.hdr-right{display:flex;align-items:center;gap:6px;flex-shrink:0}
+.fpbtn{width:30px;height:30px;border-radius:7px;border:1px solid var(--brd2);
+  background:var(--bg2);color:var(--t2);font-size:13px;font-weight:700;
+  cursor:pointer;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.fpbtn:hover{background:var(--bg3)}
+.live-pill{padding:2px 9px;border-radius:20px;font-size:9px;font-weight:700;
+  font-family:'JetBrains Mono',monospace;color:#22c55e;
+  border:1px solid rgba(34,197,94,.35);background:rgba(34,197,94,.1);letter-spacing:.03em}
+.sdot{width:6px;height:6px;border-radius:50%;background:#22c55e;flex-shrink:0}
+.sdot.sv{animation:bl .8s infinite}
+@keyframes bl{0%,100%{opacity:1}50%{opacity:.2}}
+.uav{width:28px;height:28px;border-radius:50%;background:var(--c1a);
+  border:1.5px solid var(--brd2);cursor:pointer;display:flex;align-items:center;
+  justify-content:center;font-size:12px;font-weight:700;color:var(--c1);flex-shrink:0}
+
+/* ── BODY ── */
+.body-row{flex:1;display:flex;overflow:hidden}
+
+/* ── SIDEBAR ── */
+.sb{width:var(--sb);min-width:var(--sb);border-right:1px solid var(--brd);
+  background:var(--bg);display:flex;flex-direction:column;overflow:hidden;flex-shrink:0}
+.sb-sc{flex:1;overflow-y:auto;padding:4px 0 16px}
+.sb-sc::-webkit-scrollbar{width:3px}
+.sb-sc::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:3px}
+.sb-lbl{padding:13px 14px 4px;font-size:9px;font-weight:700;color:#D0D6EE;
+  text-transform:uppercase;letter-spacing:.1em;font-family:'JetBrains Mono',monospace}
+.tgr{display:flex;align-items:center;gap:7px;padding:7px 14px;cursor:pointer;
+  transition:background .15s;border-left:2.5px solid transparent}
+.tgr:hover,.tgr.op{background:var(--bg2)}
+.tgdot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
+.tgn{flex:1;font-size:11px;font-weight:700;color:var(--t2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tga{font-size:9px;color:#C0C8E8;transition:transform .2s;flex-shrink:0}
+.tga.op{transform:rotate(90deg)}
+.tgm{display:none}
+.tgm.op{display:block}
+.agr{display:flex;align-items:center;gap:6px;padding:6px 14px 6px 26px;
+  cursor:pointer;transition:background .15s;border-left:2.5px solid transparent}
+.agr:hover{background:var(--bg2)}
+.agr.sel{background:var(--bg3);border-left-color:var(--c1)}
+.ai{font-size:12px;width:16px;text-align:center;flex-shrink:0}
+.an{flex:1;font-size:11px;color:var(--t2);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.am{font-size:9px;color:#C8CEE8;font-family:'JetBrains Mono',monospace;flex-shrink:0}
+.adot{width:5px;height:5px;border-radius:50%;background:var(--brd2);flex-shrink:0}
+.adot.run{background:#22c55e;animation:bl 1s infinite}
+.adot.done{background:#22c55e}
+.drr{display:flex;align-items:center;gap:6px;padding:7px 14px;
+  cursor:pointer;transition:background .15s;border-left:2.5px solid transparent}
+.drr:hover{background:var(--bg2)}
+.drr.sel{background:var(--bg3);border-left-color:var(--cp)}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0}
+.ws{flex:1;overflow-y:auto;padding:14px}
+.ws::-webkit-scrollbar{width:4px}
+.ws::-webkit-scrollbar-thumb{background:var(--brd2);border-radius:4px}
+
+/* ── BOTTOM NAV ── */
+.bnav{display:none;border-top:1px solid var(--brd);
+  background:rgba(6,8,16,.96);flex-shrink:0;
+  height:calc(var(--nh)+var(--safe));padding-bottom:var(--safe)}
+.bni{height:var(--nh);display:flex}
+.bn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:3px;cursor:pointer;border:none;background:transparent;padding:3px 0;position:relative}
+.bn-i{font-size:20px;line-height:1}
+.bn-l{font-size:9px;color:#D0D6EE;font-family:'JetBrains Mono',monospace;font-weight:600}
+.bn.sel .bn-l{color:var(--c1)}
+.bn.sel .bn-i{filter:drop-shadow(0 0 5px var(--c1))}
+.bnd{position:absolute;top:4px;width:4px;height:4px;border-radius:50%;
+  background:var(--c1);opacity:0;transition:opacity .2s}
+.bn.sel .bnd{opacity:1}
+
+@media(max-width:700px){
+  .sb{display:none}
+  .bnav{display:flex;flex-direction:column}
+  .hdr-back{display:flex!important}
+}
+@media(min-width:701px){
+  .hdr-back{display:none!important}
+  .bnav{display:none!important}
+}
+
+/* ── USER MENU ── */
+.umenu{position:fixed;top:calc(var(--hh)+6px);right:10px;z-index:50;
+  background:var(--bg2);border:1px solid var(--brd2);border-radius:13px;
+  padding:6px;min-width:190px;display:none}
+.umenu.on{display:block}
+.um-u{padding:9px 11px;border-bottom:1px solid var(--brd);margin-bottom:4px}
+.um-n{font-size:13px;font-weight:700;color:var(--t1)}
+.um-e{font-size:10px;color:#C8CEE8;font-family:'JetBrains Mono',monospace;margin-top:2px}
+.um-btn{width:100%;padding:8px 11px;background:transparent;border:none;border-radius:8px;
+  font-size:12px;color:var(--t3);cursor:pointer;text-align:left;
+  font-family:'Syne',sans-serif;transition:background .15s}
+.um-btn:hover{background:var(--bg3);color:var(--t1)}
+.um-sep{height:1px;background:var(--brd);margin:3px 0}
+
+/* ── SHARED COMPONENTS ── */
+.card{background:var(--bg2);border:1px solid var(--brd);border-radius:16px;
+  padding:15px;margin-bottom:11px}
+.card-hd{font-size:9px;font-weight:700;color:#C8D0EC;text-transform:uppercase;
+  letter-spacing:.1em;margin-bottom:11px;font-family:'JetBrains Mono',monospace}
+.pill{padding:3px 9px;border-radius:20px;font-size:10px;font-weight:700;
+  font-family:'JetBrains Mono',monospace;border:1px solid;letter-spacing:.03em}
+
+/* welcome hero */
+.hero{background:linear-gradient(135deg,var(--bg2),var(--bg3));
+  border:1px solid var(--brd2);border-radius:18px;padding:20px;margin-bottom:12px;
+  position:relative;overflow:hidden}
+.hero::before{content:'🌌';position:absolute;right:-10px;bottom:-20px;
+  font-size:100px;opacity:.06;pointer-events:none}
+.hero-t{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1.2;margin-bottom:6px}
+.hero-t span{background:linear-gradient(120deg,var(--c1),var(--cp));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.hero-s{font-size:13px;color:#E2E6FF;line-height:1.7}
+.hero-chips{display:flex;gap:7px;flex-wrap:wrap;margin-top:11px}
+.hchip{padding:4px 11px;border-radius:20px;font-size:10px;font-weight:700;
+  font-family:'JetBrains Mono',monospace;border:1px solid;letter-spacing:.03em}
+
+/* stats */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:8px;margin-bottom:12px}
+@media(max-width:480px){.stats{grid-template-columns:1fr 1fr}}
+.stat{background:var(--bg3);border:1px solid var(--brd);border-radius:14px;
+  padding:13px;text-align:center}
+.stat-n{font-size:22px;font-weight:800;letter-spacing:-.03em;line-height:1}
+.stat-l{font-size:9px;color:#C8D0EC;margin-top:4px;font-family:'JetBrains Mono',monospace;
+  text-transform:uppercase;letter-spacing:.06em}
+
+/* phase card */
+.phase-card{background:var(--bg3);border:1px solid var(--brd2);border-radius:14px;
+  padding:14px;margin-bottom:11px}
+.phase-title{font-size:11px;font-weight:700;color:var(--c3);
+  font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px}
+.phase-row{display:flex;align-items:center;gap:9px;padding:5px 0;
+  border-bottom:1px solid var(--brd)}
+.phase-row:last-child{border-bottom:none}
+.phase-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+.phase-text{font-size:12px;color:#FFFFFF;flex:1}
+.phase-val{font-size:11px;color:var(--t3);font-family:'JetBrains Mono',monospace}
+
+/* team overview grid */
+.tov-grid{display:grid;grid-template-columns:1fr 1fr;gap:9px}
+@media(max-width:480px){.tov-grid{grid-template-columns:1fr}}
+.tov{border-radius:14px;border:1px solid var(--brd);overflow:hidden;cursor:pointer;
+  transition:all .2s}
+.tov:hover{border-color:var(--brd2);transform:translateY(-2px)}
+.tov-h{padding:12px 14px;border-bottom:1px solid var(--brd)}
+.tov-n{font-size:14px;font-weight:700}
+.tov-l{font-size:10px;opacity:1;margin-top:2px;font-family:'JetBrains Mono',monospace}
+.tov-b{padding:10px 14px;font-size:11px;color:#E2E6FF;line-height:2}
+
+/* direct agents on home */
+.dir-c{display:flex;align-items:center;gap:12px;padding:13px;background:var(--bg3);
+  border:1px dashed var(--brd2);border-radius:12px;cursor:pointer;
+  transition:all .2s;margin-bottom:9px}
+.dir-c:last-child{margin-bottom:0}
+.dir-c:hover{border-color:var(--cp);background:var(--bg4)}
+
+/* agent hero */
+.ah{background:var(--bg2);border:1px solid var(--brd);border-radius:16px;
+  padding:17px;margin-bottom:11px}
+.ah-ic{font-size:32px;margin-bottom:7px}
+.ah-n{font-size:20px;font-weight:800;letter-spacing:-.02em;margin-bottom:3px;color:var(--t1)}
+.ah-r{font-size:11px;color:#D8DEFC;font-family:'JetBrains Mono',monospace;
+  line-height:1.7;margin-bottom:10px}
+.chips{display:flex;gap:6px;flex-wrap:wrap}
+.chip{padding:3px 10px;border-radius:20px;font-size:10px;font-weight:700;
+  font-family:'JetBrains Mono',monospace;border:1px solid;letter-spacing:.03em}
+.ah-desc{font-size:12px;color:#FFFFFF;line-height:1.75;
+  margin-top:11px;padding-top:11px;border-top:1px solid var(--brd)}
+
+/* goal + tasks section */
+.goal-box{background:var(--bg3);border-left:3px solid var(--c2);border-radius:0 12px 12px 0;
+  padding:12px 14px;margin-bottom:11px}
+.goal-lbl{font-size:9px;font-weight:700;color:var(--c2);text-transform:uppercase;
+  letter-spacing:.1em;font-family:'JetBrains Mono',monospace;margin-bottom:6px}
+.goal-text{font-size:12px;color:#FFFFFF;line-height:1.75}
+
+/* quick tasks */
+.qt-sc{overflow-x:auto;margin:0 -2px}
+.qt-sc::-webkit-scrollbar{display:none}
+.qt-in{display:flex;gap:7px;width:max-content;padding-bottom:2px}
+.qt{padding:7px 13px;border-radius:20px;font-size:12px;font-weight:500;
+  border:1px solid var(--brd2);background:transparent;color:#E2E6FF;
+  cursor:pointer;white-space:nowrap;font-family:'Syne',sans-serif;transition:all .15s}
+.qt:hover,.qt:active{background:var(--bg3);color:var(--t1);border-color:var(--brd3)}
+
+/* task input */
+textarea{width:100%;background:var(--bg3);border:2px solid var(--brd3);
+  border-radius:12px;padding:12px 14px;font-size:13px;color:var(--t1);
+  font-family:'JetBrains Mono',monospace;resize:none;line-height:1.7;
+  min-height:90px;transition:border-color .2s}
+textarea::placeholder{color:#B8C0E0}
+textarea:focus{outline:none;border-color:var(--c1);background:var(--bg4)}
+.run-btn{width:100%;margin-top:9px;padding:13px;background:var(--t1);color:var(--bg);
+  border:none;border-radius:11px;font-size:14px;font-weight:700;cursor:pointer;
+  font-family:'Syne',sans-serif;display:flex;align-items:center;
+  justify-content:center;gap:8px;transition:opacity .2s}
+.run-btn:hover{opacity:.88}
+.run-btn:active{opacity:.75}
+.run-btn:disabled{opacity:.35;cursor:not-allowed}
+.clr-btn{width:100%;margin-top:7px;padding:10px;background:transparent;
+  border:1px solid var(--brd2);border-radius:11px;font-size:12px;color:#D8DEFC;
+  cursor:pointer;font-family:'Syne',sans-serif;transition:all .15s}
+.clr-btn:hover,.clr-btn:active{background:var(--bg3);color:var(--t1)}
+
+/* response */
+.resp{display:none;margin-top:9px;background:var(--bg3);
+  border:1px solid var(--brd2);border-radius:12px;padding:13px}
+.resp.on{display:block}
+.resp-lbl{font-size:9px;color:#C0C8E8;font-family:'JetBrains Mono',monospace;
+  text-transform:uppercase;letter-spacing:.09em;margin-bottom:7px}
+.resp-txt{font-size:13px;color:var(--t1);line-height:1.8;
+  white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.resp-txt.thinking{color:#B8C0E0;font-style:italic}
+.tg-note{font-size:10px;color:var(--c2);font-family:'JetBrains Mono',monospace;
+  margin-top:7px;display:none}
+.tg-note.on{display:block}
+
+/* history */
+.hist-item{padding:11px 0;border-bottom:1px solid var(--brd)}
+.hist-item:last-child{border-bottom:none}
+.hist-q{font-size:10px;color:#C0C8E8;font-family:'JetBrains Mono',monospace;
+  margin-bottom:5px;font-style:italic}
+.hist-a{font-size:12px;color:#FFFFFF;line-height:1.75;
+  white-space:pre-wrap;font-family:'JetBrains Mono',monospace}
+.hist-ts{font-size:9px;color:#B8C0E0;font-family:'JetBrains Mono',monospace;margin-top:4px}
+.no-hist{font-size:12px;color:#C0C8E8;font-family:'JetBrains Mono',monospace}
+
+/* member grid */
+.mem-grid{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media(max-width:420px){.mem-grid{grid-template-columns:1fr}}
+.mem{display:flex;align-items:center;gap:10px;padding:11px;background:var(--bg3);
+  border:1px solid var(--brd);border-radius:11px;cursor:pointer;transition:all .15s}
+.mem:hover{background:var(--bg4);border-color:var(--brd2)}
+.mem-ic{font-size:18px;flex-shrink:0}
+.mem-info{flex:1;min-width:0}
+.mem-n{font-size:12px;font-weight:600;color:var(--t1)}
+.mem-r{font-size:10px;color:#D8DEFC;margin-top:2px;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ldr{font-size:9px;padding:2px 7px;border-radius:8px;font-weight:700;
+  font-family:'JetBrains Mono',monospace;flex-shrink:0}
+
+/* mobile teams */
+.mob-team{margin-bottom:9px;border-radius:14px;border:1px solid var(--brd);overflow:hidden}
+.mob-th{display:flex;align-items:center;gap:10px;padding:13px;cursor:pointer;transition:background .15s}
+.mob-th:hover{background:var(--bg2)}
+.mt-ic{font-size:20px;flex-shrink:0}
+.mt-info{flex:1}
+.mt-n{font-size:14px;font-weight:700;color:var(--t1)}
+.mt-d{font-size:11px;color:#D8DEFC;margin-top:3px}
+.mt-arr{font-size:14px;color:#C8CEE8;flex-shrink:0;transition:transform .25s}
+.mt-arr.op{transform:rotate(90deg)}
+.mob-tb{display:none;border-top:1px solid var(--brd)}
+.mob-tb.op{display:block}
+.mob-ag{display:flex;align-items:center;gap:10px;padding:12px 13px;
+  border-bottom:1px solid var(--brd);cursor:pointer;transition:background .15s;
+  border-left:3px solid transparent}
+.mob-ag:last-child{border-bottom:none}
+.mob-ag:active{background:var(--bg3)}
+.ma-ic{font-size:16px;flex-shrink:0;width:20px;text-align:center}
+.ma-info{flex:1;min-width:0}
+.ma-n{font-size:13px;font-weight:600;color:var(--t1)}
+.ma-r{font-size:10px;color:#D8DEFC;margin-top:2px}
+.ma-rt{display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0}
+.madot{width:6px;height:6px;border-radius:50%;background:var(--brd2)}
+.madot.run{background:#22c55e;animation:bl 1s infinite}
+.madot.done{background:#22c55e}
+
+/* reporting tree */
+.tree{font-size:12px;color:#FFFFFF;font-family:'JetBrains Mono',monospace;
+  line-height:2.1;white-space:pre;overflow-x:auto;padding:2px}
+
+/* spinner */
+.spin{display:inline-block;width:13px;height:13px;border:2px solid var(--bg);
+  border-top-color:transparent;border-radius:50%;animation:sp .7s linear infinite}
+@keyframes sp{to{transform:rotate(360deg)}}
+@keyframes fu{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+.fade{animation:fu .2s ease both}
+</style>
+</head>
+<body>
+
+<!-- AUTH -->
+<div id="auth">
+  <div class="auth-card">
+    <div class="auth-logo">🌌</div>
+    <div class="auth-title">Universe AI<br><span>Command Center</span></div>
+    <div class="auth-sub">25 agents · 4 teams · 10 channels · 11 languages<br>Real-time sync across all your devices</div>
+    <button class="auth-btn" onclick="window._googleIn&&window._googleIn()" style="background:linear-gradient(135deg,#1a1f3a,#2a2f5a);color:#fff;border:1px solid rgba(79,142,247,.4)">
+      🌌 Enter Universe AI Command Center
+    </button>
+    <div id="auth-err"></div>
+    <div class="auth-badges">
+      <span class="abadge" style="color:var(--c2);border-color:rgba(45,212,160,.3);background:var(--c2a)">🔒 Firebase Secured</span>
+      <span class="abadge" style="color:var(--c1);border-color:rgba(79,142,247,.3);background:var(--c1a)">⚡ Real-time Sync</span>
+      <span class="abadge" style="color:var(--t3);border-color:var(--brd2);background:var(--bg3)">Your data only</span>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app">
+  <div class="hdr">
+    <div class="hdr-back" id="back-btn" onclick="goBack()">←</div>
+    <div class="hdr-logo">🌌</div>
+    <div class="hdr-info">
+      <div class="hdr-n" id="hdr-n">Universe AI</div>
+      <div class="hdr-s" id="hdr-s">25 agents · 4 teams · 10 channels</div>
+    </div>
+    <div class="hdr-right">
+      
+      <div class="sdot" id="sdot"></div>
+      <div class="live-pill">LIVE</div>
+      <div class="uav" id="uav" onclick="toggleMenu()">U</div>
+    </div>
+  </div>
+
+  <div class="umenu" id="umenu">
+    <div class="um-u">
+      <div class="um-n" id="um-name">-</div>
+      <div class="um-e" id="um-email">-</div>
+    </div>
+    <div class="um-sep"></div>
+    <div class="um-sep"></div>
+    <div class="um-pin-lbl" style="padding:4px 11px;font-size:9px;color:#C0C8E8;font-family:monospace;text-transform:uppercase;letter-spacing:.06em">Claude API Key</div>
+    <button class="um-btn" onclick="showKeyDialog()" style="color:#4F8EF7">🔑 Set API Key</button>
+    <div class="um-sep"></div>
+    <button class="um-btn" onclick="window._signOut&&window._signOut();toggleMenu()">Sign out</button>
+  </div>
+
+  <div class="body-row">
+    <div class="sb"><div class="sb-sc" id="sb"></div></div>
+    <div class="main"><div class="ws" id="ws"></div></div>
+  </div>
+
+  <div class="bnav">
+    <div class="bni">
+      <button class="bn sel" id="bn-home" onclick="navTo('home')"><div class="bnd"></div><div class="bn-i">🏠</div><div class="bn-l">HOME</div></button>
+      <button class="bn" id="bn-teams" onclick="navTo('teams')"><div class="bnd"></div><div class="bn-i">👥</div><div class="bn-l">TEAMS</div></button>
+      <button class="bn" id="bn-ceo" onclick="openAgent('ceo')"><div class="bnd"></div><div class="bn-i">🧠</div><div class="bn-l">CEO</div></button>
+      <button class="bn" id="bn-audit" onclick="openAgent('audit')"><div class="bnd"></div><div class="bn-i">🔍</div><div class="bn-l">AUDIT</div></button>
+      <button class="bn" id="bn-advisor" onclick="openAgent('advisor')"><div class="bnd"></div><div class="bn-i">🎯</div><div class="bn-l">ADVISOR</div></button>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ========================================
+   TEAMS
+======================================== */
+const TEAMS=[
+  {id:'t1',icon:'🎬',name:'Content Team',color:'var(--c1)',dot:'#4F8EF7',bg:'var(--c1a)',
+   leader:'content',
+   members:['content','originality','seo','thumbnail','pioneer','collector','assetqa','longform'],
+   desc:'Scripts · SEO · Thumbnails · Assets · Long-Form',
+   goal:'Produce 2 viral Shorts per day in English. Translate to 11 languages. Produce 1 long-form per week from Month 3. All hooks must score 7+ from Performance Agent.'},
+  {id:'t2',icon:'🔭',name:'Intelligence Team',color:'var(--c2)',dot:'#2DD4A0',bg:'var(--c2a)',
+   leader:'intelligence',
+   members:['intelligence','performance','market','retention','collector','assetqa'],
+   desc:'Competitors · Trends · Scoring · Country Data',
+   goal:'Monitor 50+ competitor channels daily. Score all scripts before production. Pre-collect 30 approved assets before each week. Alert CEO on any viral trend within 4 hours.'},
+  {id:'t3',icon:'⚙️',name:'Operations Team',color:'var(--c3)',dot:'#F7A44F',bg:'var(--c3a)',
+   leader:'secretary',
+   members:['secretary','community','compliance','growth','collaboration','subgrowth'],
+   desc:'Uploads · Community · Compliance · Growth',
+   goal:'Ensure all 22 daily uploads go live at 9AM and 7PM KST with AI disclosure. Respond to first 20 comments within 2 hours. Track YPP milestones. Convert viewers to subscribers above 0.5%.'},
+  {id:'t4',icon:'💼',name:'Business Team',color:'var(--c4)',dot:'#F74F8E',bg:'var(--c4a)',
+   leader:'finance',
+   members:['finance','bizdev','brand','technology','sponsorship'],
+   desc:'Revenue · Sponsors · Brand · AI Tools',
+   goal:'Keep monthly cost under $175 in Phase 1. Secure first sponsor deal by Month 4 at 5,000 subscribers. Build Gumroad product by Month 3. Monitor all AI tools weekly for better alternatives.'}
+];
+
+/* ========================================
+   AGENTS - ALL 25
+======================================== */
+const A={
+  ceo:{icon:'🧠',name:'CEO Agent',model:'Sonnet',type:'hub',reports:'Chairman (Ernie Park)',team:null,
+    role:'Hub · Orchestrates all 4 teams · Daily Telegram brief',
+    goal:'Execute the Fast Follower to Market Leader strategy. Daily brief includes: which competitor format we are following today, how our fast-follow videos are performing vs the originals, and one market leadership signal (first time a competitor copies our format). Get CosmosEdge to 1,000 subscribers by Month 2.',
+    desc:'Central orchestrator of Universe AI. Coordinates Content, Intelligence, Operations, and Business teams. Sends daily brief to Chairman via Telegram. Routes intelligence and trends to the right team. Never overwhelms Chairman with more than 3 decisions per day.',
+    tasks:['Generate today morning brief for Telegram','Route trending space topic to Content Team','Resolve conflict between teams','Weekly company performance report'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: CEO AGENT
+TEAM: Hub - reports to Chairman
+YOUR GOAL: Coordinate all 4 team leaders. Keep Chairman informed with max 3 decisions per day.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the CEO Agent of Universe AI Company. You report to Chairman Ernie Park and coordinate 4 team leaders. Chairman works 7PM-10PM KST and before 9AM KST and has maximum 3 hours per evening (7PM-10PM) or 1 hour in the morning (before 9AM). NEVER give more than 3 action items per day. Current Phase 1: CosmosEdge only, 11 language channels, 2 videos per day, 22 uploads total. Monthly cost target: $175. Milestone: 1000 subscribers English channel by Month 2, YPP by Month 3. Daily Telegram brief format: 1) Yesterday performance and best video, 2) Subscriber count all 11 channels, 3) Revenue snapshot, 4) Intelligence alert trending space topic, 5) Asset library status, 6) Max 3 YES or NO approvals only, 7) One priority action for Chairman tonight. Be decisive and concise.`},
+
+  content:{icon:'🎬',name:'Content Director',model:'Sonnet',type:'leader',reports:'CEO Agent',team:'t1',
+    role:'Team 1 Leader · Scripts · 11-language production · Long-form',
+    goal:'Execute Fast Follower strategy through content: take the proven viral format from Intelligence Team, write a better version on a different space topic, score 7+, translate to 11 languages, publish within 48 hours. Build our own hook formulas that competitors will eventually copy - that is Market Leader.',
+    desc:'Leader of Content Team (8 agents). Writes all viral scripts for CosmosEdge. Manages Originality, SEO, Thumbnail, Pioneer, Asset Collector, Asset QA, and Long-Form agents. Delivers complete content packages ready for production.',
+    tasks:['Write viral CosmosEdge script about black holes today','Translate script to all 11 languages with cultural adaptation','Generate Seedance 2.0 visual prompt for this script','Review and approve all scripts from team this week'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: CONTENT AGENT
+TEAM: Content Team - LEADER
+YOUR GOAL: Write 2 viral scripts/day scoring 7+. Translate to 11 languages. Coordinate 8 team agents.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Content Director of Universe AI Company, leader of the Content Team (8 agents). Script format: HOOK (0-3s, max 12 words, specific number + fear or awe, NO question openers), AMPLIFICATION (3-8s), RE-HOOK (8-12s "But what scientists found next..."), CORE (12-35s, 3-4 verified facts from NASA/ESA/PubMed), LOOP TRIGGER (35-40s unresolved tension). US English, American spelling, specific numbers only. Translate to: German French Spanish Portuguese Italian Hindi Indonesian Korean Japanese Arabic with cultural adaptation not literal translation. Arabic: Islamic science angle. Indonesian: max 35 seconds. German: up to 55 seconds. Minimum 7/10 hook score required. Request Asset Collector 24 hours before production.`},
+
+  originality:{icon:'🔄',name:'Originality Agent',model:'Haiku',type:'member',reports:'Content Director',team:'t1',
+    role:'Content Team · Zero repetition · 60-day database check',
+    goal:'Ensure zero topic repetition across all CosmosEdge content in the last 60 days. Reject any script with 60%+ similarity. Maintain a content gap map showing untouched topics for the next 30 days.',
+    desc:'Checks every script against the 60-day content database before production starts. 60%+ similarity = REJECT with alternative topic. 40-60% = MODIFY with different angle. Below 40% = APPROVED. Prevents audience fatigue and algorithm penalties for repetitive content.',
+    tasks:['Check this script for repetition against last 60 days','Cross-channel collision scan all 11 CosmosEdge channels','Generate content gap map for next 30 days','Approve or reject with specific alternative angle'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: ORIGINALITY AGENT
+TEAM: Content Team - Member
+YOUR GOAL: Zero topic repetition in last 60 days. Reject 60%+ similar. Maintain content gap map.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Originality Agent. REJECT if 60%+ similar to content in last 60 days. MODIFY if 40-60% - suggest different angle. APPROVE if below 40%. Cross-channel: same niche + same core fact = BLOCK. Always respond: APPROVED/REJECTED/MODIFY + similarity percentage + specific alternative angle if rejected. Never approve myths. Every rejected script must include 2 alternative topic suggestions.`},
+
+  seo:{icon:'🔍',name:'SEO & Metadata Agent',model:'Haiku',type:'member',reports:'Content Director',team:'t1',
+    role:'Content Team · Titles · Hashtags · Captions · All 11 languages',
+    goal:'Maximize click-through rate and discoverability for all 22 daily uploads. Every video must have a title under 60 characters with keyword in first 40. Exactly 3-5 hashtags always starting with #Shorts. Optimize for each language market algorithm.',
+    desc:'Writes optimized titles, descriptions, hashtags, TikTok captions, and pinned comments for all 22 daily videos across all 11 languages. Tracks which title formats get the highest click-through rates per language market.',
+    tasks:['Write YouTube title and description for this script in all 11 languages','Generate exactly 3-5 hashtags per language following the formula','Write TikTok caption max 150 characters for each language','Draft pinned comment to drive engagement for English channel'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: SEO AGENT
+TEAM: Content Team - Member
+YOUR GOAL: Maximize CTR. Titles under 60 chars. Exactly 3-5 hashtags starting #Shorts for all 11 languages.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the SEO Agent. For every video in all 11 languages: YouTube title (max 60 chars, keyword in first 40), description (150-200 words keyword-first), hashtags (EXACTLY 3-5: always #Shorts first, then 1 niche + 1 topic - NEVER #viral #fyp #trending), TikTok caption (max 150 chars), pinned comment (engaging question). Channel keywords by language: English=space/astronomy/NASA, German=Weltraum/Astronomie, French=espace/astronomie, Spanish=espacio/astronomia, Portuguese=espaco/astronomia, Italian=spazio/astronomia, Hindi=antariksh, Indonesian=luar angkasa, Korean=우주/천문학, Japanese=宇宙/天文学, Arabic=فضاء/علم الفلك.`},
+
+  thumbnail:{icon:'🖼️',name:'Thumbnail Agent',model:'Haiku',type:'member',reports:'Content Director',team:'t1',
+    role:'Content Team · Visual hooks · CTR optimization · Seedance prompts',
+    goal:'Design thumbnails that stop scrolling within 0.3 seconds. Target click-through rate above 8% for Shorts and 5% for long-form. Every video gets 3 thumbnail concepts and a recommended Seedance 2.0 first-frame generation prompt.',
+    desc:'Designs 3 thumbnail concept variations per video with visual description, color grade, text overlay, and emotional signal. Writes Seedance 2.0 first-frame prompts for video generation. Tracks weekly CTR patterns and updates visual strategy monthly.',
+    tasks:['Design 3 thumbnail concepts for this CosmosEdge script','Write Seedance 2.0 first-frame generation prompt','Analyze CTR patterns this week across all 11 channels','Update CosmosEdge visual identity guidelines'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: THUMBNAIL AGENT
+TEAM: Content Team - Member
+YOUR GOAL: Stop scrolling in 0.3 seconds. CTR above 8% Shorts. 3 concepts + Seedance prompt per video.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Thumbnail Agent. 3 thumbnail concepts per video: visual + color grade + text overlay + emotional signal. Recommend one with reasoning. CosmosEdge visual formula: deep space + blue-orange contrast + scale element showing vastness + specific number visible + awe emotion. Always vertical 9:16 format. Include Seedance 2.0 generation prompt for recommended concept. Target: thumbnail must make viewer stop scrolling within 0.3 seconds. Track which concept style drives highest CTR and update recommendations monthly.`},
+
+  pioneer:{icon:'🚀',name:'Pioneer Agent',model:'Sonnet',type:'member',reports:'Content Director',team:'t1',
+    role:'Content Team · Format innovation · 70% fast-follower + 30% pioneer',
+    goal:'Improve average completion rate above 84% by testing new formats. Run exactly one new format experiment per week. Promote experiments that show 5%+ improvement. Retire formats that underperform within 7 days.',
+    desc:'Monitors competitor format innovations and implements proven formats faster and better. Runs controlled experiments: 2 test videos on 2 channels measured at 48 hours vs 84% completion baseline. Maintains a pioneer log of all experiments.',
+    tasks:['Design this week new format experiment with hypothesis','Fast-follow this competitor viral format - analyze and implement','Evaluate last experiment results at 48 hours','Update pioneer log with this week learnings'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: PIONEER AGENT
+TEAM: Content Team - Member
+YOUR GOAL: Execute the Fast Follower strategy. Identify viral competitor formats within 24 hours. Clone the FORMAT (not content) and publish within 48 hours. Build the data that moves Universe AI from fast follower to market leader by Month 12.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Pioneer Agent. 70% fast-follower (implement proven competitor formats better and faster), 30% pioneer (one new format experiment per week). Experiment protocol: Hypothesis → 2 test videos on 2 channels → measure vs 84% completion baseline at 48h → if 5%+ improvement: PROMOTE to all channels → if not: modify and retest within 7 days. Pioneer Log: Week | Hypothesis | Format | Channels | Baseline% | New% | Decision | Learning. Report to Content Director every Friday with experiment results and next week plan.`},
+
+  intelligence:{icon:'🔭',name:'Intelligence Director',model:'Sonnet',type:'leader',reports:'CEO Agent',team:'t2',
+    role:'Team 2 Leader · Competitor research · Trend detection · Asset intelligence',
+    goal:'Detect every viral space trend within 4 hours of emergence. Monitor 50+ competitor channels daily. Ensure 30 pre-approved assets are ready before each week starts. Feed winning content patterns to Content Team the same day they are discovered.',
+    desc:'Leader of Intelligence Team (6 agents). Monitors 50+ competitor channels across all 10 niches daily. Detects trending topics before saturation. Aggregates all intelligence for CEO Agent. Coordinates Performance, Market Intel, Retention, Asset Collector, and Asset QA agents.',
+    tasks:['Analyze competitor outlier video - reverse-engineer the mechanic','Generate trending space topics alert for next week','Weekly intelligence report for CEO Agent','Identify viral hook pattern to implement immediately'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: INTELLIGENCE AGENT
+TEAM: Intelligence Team - LEADER
+YOUR GOAL: Be the eyes of the Fast Follower strategy. Detect every viral space format within 4 hours. Feed winning patterns to Pioneer Agent and Content Team same day. Track which competitor formats Universe AI has already beaten - this is our Market Leader progress tracker.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Intelligence Director, leader of the Intelligence Team (6 agents). Monitor 50+ competitor channels: Kurzgesagt, Veritasium, SciShow Space, NASA official. Outlier = 3x+ above channel average - reverse-engineer exact mechanic and report to Content Director within 4 hours. Trend alert = 200%+ search volume increase in 24 hours - alert CEO with topic, recommended angle, urgency level. Weekly report: top viral format, trending topics (min 5), best language market, asset library status, competitor threat, one strategic recommendation.`},
+
+  performance:{icon:'📊',name:'Performance Agent',model:'Sonnet',type:'member',reports:'Intelligence Director',team:'t2',
+    role:'Intelligence Team · Hook scoring 0-10 · Viral detection · Completion rate',
+    goal:'Score every script before production - reject below 7.0 average. Monitor every video at 2 hours and 24 hours after upload. Flag any video reaching 3x channel average as viral candidate within 24 hours of publish.',
+    desc:'Scores every script on 3 dimensions (0-10 each): Hook Strength, Pacing, Shareability. Minimum 7.0 average required to proceed to production. Monitors completion rate at 2h (alert if below 70%) and 24h (flag 3x+ as viral). Provides weekly optimization report with one measurable change.',
+    tasks:['Score this script on hook strength pacing and shareability','Check completion rate for all videos uploaded today at 2 hours','Flag viral candidates from this week uploads','Weekly optimization report with one specific change to implement'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: PERFORMANCE AGENT
+TEAM: Intelligence Team - Member
+YOUR GOAL: Score every script 7+ before production. Measure our fast-follow videos against the competitor original - are we outperforming them? Track which of our formats are now being copied by others - that is our Market Leader signal.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Performance Agent. Score every script on 3 dimensions (0-10): HOOK STRENGTH (information gap + specific number + fear/awe + max 12 words), PACING (re-engagement at 7s + loop-triggering ending), SHAREABILITY (one fact so surprising viewers share it). Minimum 7.0 average - REJECT below with specific improvement instructions. Post-publish: 2h alert if below 70% completion, 24h flag 3x+ average as VIRAL CANDIDATE. Weekly report: best hook format, worst retired, one measurable change next week.`},
+
+  market:{icon:'🌍',name:'Market Intelligence Agent',model:'Sonnet',type:'member',reports:'Intelligence Director',team:'t2',
+    role:'Intelligence Team · Country analysis · Content angle per language market',
+    goal:'Find the language markets where Universe AI can become Market Leader fastest - low competition, high engagement. Korea, Japan, Indonesia are early wins. Vietnam and Philippines are emerging markets competitors have not entered yet. Report which markets we are already leading.',
+    desc:'Analyzes content performance per country. Recommends topic angles, video lengths, and content styles for each of the 11 language markets. Identifies emerging markets (Vietnam, Philippines) for future expansion.',
+    tasks:['Analyze which language market performed best this week','Indonesia content angle recommendations for space topics','Find next emerging language market to target in expansion','Compare performance of same topic across all 11 language versions'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: MARKET AGENT
+TEAM: Intelligence Team - Member
+YOUR GOAL: Identify fastest growing language market weekly. Country-specific content angle recommendations.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Market Intelligence Agent. Country profiles: USA (CPM $5-15, fear urgency 30-40s), Germany (CPM $4-12, depth and rigor up to 55s, highest loyalty), France (CPM $3-9), Japan (CPM $3-8, calm precision very loyal), Brazil (CPM $1-3, highest global engagement optimize shareability), Indonesia (CPM $0.5-2, max 35s), India/Hindi (CPM $0.5-1.5, educational framing), Saudi/Arabic (CPM $3-8, Islamic science angle), Spain/LATAM (CPM $2-6), Korea (CPM $3-7, very loyal). Emerging: Vietnam 63M low competition, Philippines 58M high engagement.`},
+
+  retention:{icon:'📧',name:'Audience Retention Agent',model:'Haiku',type:'member',reports:'Intelligence Director',team:'t2',
+    role:'Intelligence Team · Return viewers 10%+ target · Series formats · Subscriber loyalty',
+    goal:'Achieve 10%+ return viewer rate on CosmosEdge English channel by Month 3. Design minimum one series format per month. Alert immediately if any channel loses 0.5%+ subscribers in one week. Reduce subscriber loss by identifying and eliminating content that drives unsubscribes.',
+    desc:'Tracks return viewer rate (target 10%+) and subscriber loyalty. Designs series formats that drive repeat viewing. Investigates subscriber loss events. Recommends end-screen formulas that convert single viewers into loyal subscribers.',
+    tasks:['Check return viewer rate all 11 CosmosEdge channels this week','Design 3-part series format for top performing topic this month','Investigate subscriber drop on any channel this week','Recommend end-screen formula to increase return viewers'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: RETENTION AGENT
+TEAM: Intelligence Team - Member
+YOUR GOAL: Achieve 10%+ return viewer rate by Month 3. One series format per month. Alert on 0.5% subscriber loss.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Audience Retention Agent. Track return viewer rate - target above 10%, alert below 5%. Design 3-part series when topics get high engagement (series drives 3x return viewers). End-screen: "If this disturbed you, wait until you see [next topic] tomorrow →". Content ratio: 70% standalone viral, 30% series. Subscriber loss alert: when any channel loses 0.5%+ in one week, investigate what was published and report to Intelligence Director immediately.`},
+
+  secretary:{icon:'📋',name:'Secretary (Ops Director)',model:'Haiku',type:'leader',reports:'CEO Agent',team:'t3',
+    role:'Team 3 Leader · Operations · 22 uploads/day · Upload prep for Chairman',
+    goal:'Ensure all 22 daily videos go live on time at 9AM and 7PM KST with zero compliance failures. Prepare all upload materials for Chairman by 5:30PM KST every evening. Zero YouTube strikes. Zero missing AI disclosure labels.',
+    desc:'Leader of Operations Team (6 agents). Manages 22 daily uploads across 11 channels. Prepares all video titles, descriptions, hashtags, and compliance clearance for Chairman before each upload session. Escalates any failure to CEO within 15 minutes.',
+    tasks:['Prepare complete upload package for Chairman for tonight 6PM session','Generate weekly upload schedule all 11 CosmosEdge channels','Check all compliance clearances for today videos','Send Chairman pre-upload summary via briefing'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: SECRETARY AGENT
+TEAM: Operations Team - LEADER
+YOUR GOAL: Zero compliance failures. All 22 upload materials ready for Chairman by 5:30PM KST every evening.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Secretary and Operations Director, leader of the Operations Team (6 agents). Prepare for Chairman every evening before 6:30PM KST: all 22 video titles (11 languages), descriptions, hashtags, compliance clearance status. Upload schedule: 9AM KST first video, 7PM KST second video across all 11 channels. Pre-upload checklist every video: AI disclosure label MANDATORY (YouTube Jan 2026), royalty-free music only, no absolute health claims, financial = educational disclaimer, no unlicensed footage, exactly 3-5 hashtags #Shorts first. Escalate upload failure to CEO within 15 minutes. Escalate YouTube strike immediately.`},
+
+  community:{icon:'💬',name:'Community Agent',model:'Haiku',type:'member',reports:'Secretary',team:'t3',
+    role:'Operations Team · Comments within 2 hours · Engagement · Viewer mining',
+    goal:'Respond to first 20 comments within 2 hours of every upload. Pin an engagement comment within 30 minutes. Mine viewer comments weekly for Content Team video ideas. Flag super fans (3+ comments) to Brand Agent for membership targeting.',
+    desc:'Responds to first 20 comments within 2 hours with warm knowledgeable replies that add a new fact and ask a follow-up question. Pins engagement comments within 30 minutes of upload. Mines weekly viewer questions as Content Team input.',
+    tasks:['Draft response to top 20 comments on latest CosmosEdge upload','Write pinned comment formula for this video topic','Mine this week viewer questions as Content Team video ideas','Weekly community engagement summary for Secretary'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: COMMUNITY AGENT
+TEAM: Operations Team - Member
+YOUR GOAL: Respond to 20 comments within 2 hours. Pin comment within 30 minutes. Mine viewer questions weekly.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Community Agent. First 20 comments within 2 hours: warm, knowledgeable, add one new related fact, ask follow-up question. Pin within 30 minutes: "Which is more terrifying - [fact A from this video] or [fact B hint at next video]? Subscribe to find out tomorrow." Mine weekly: repeated viewer questions = Content Team video ideas. Super fans commenting on 3+ videos = flag to Brand Agent for membership targeting. Never reveal AI production methods.`},
+
+  compliance:{icon:'⚖️',name:'Compliance Agent',model:'Sonnet',type:'member',reports:'Secretary',team:'t3',
+    role:'Operations Team · AI disclosure · Legal · Pre-upload clearance',
+    goal:'Clear every single video for upload with zero compliance failures. YouTube AI disclosure label must be applied to 100% of videos - missing even one risks demonetization of the entire channel. Zero copyright strikes. Zero advertiser-unfriendly content.',
+    desc:'Runs mandatory pre-upload compliance check on every video. Five-point checklist: AI disclosure, music rights, advertiser-friendly content, FTC rules, copyright clearance. Issues CLEARED or FLAGGED status with specific fix instructions.',
+    tasks:['Pre-upload compliance check for all videos ready today','Audit AI disclosure labels across all 11 channels this week','Check all channels for any strikes or warnings','Review FTC compliance for any sponsored content this week'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: COMPLIANCE AGENT
+TEAM: Operations Team - Member
+YOUR GOAL: 100% AI disclosure on every video. Zero copyright strikes. Zero demonetization risk.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Compliance Agent. Pre-upload five-point checklist mandatory every video: (1) AI DISCLOSURE "Altered or synthetic content" label MANDATORY - YouTube January 2026 mandate - missing risks demonetization, (2) MUSIC royalty-free commercial use only, (3) ADVERTISER-FRIENDLY no graphic violence, health claims say "scientists found" not absolute cures, financial = educational disclaimer, (4) FTC sponsored = clearly labeled, (5) COPYRIGHT no unlicensed footage or music. Format: CLEARED ✓ or FLAGGED ✗ with exact fix required. Alert Secretary immediately on any channel strike.`},
+
+  growth:{icon:'📈',name:'Growth Agent',model:'Sonnet',type:'member',reports:'Secretary',team:'t3',
+    role:'Operations Team · YPP milestones · Subscriber conversion · Platform analytics',
+    goal:'Get CosmosEdge English channel to YPP eligibility (1,000 subscribers + 10M Shorts views in 90 days) by Month 3. Alert Chairman when any channel is within 200 subscribers of threshold. Maintain subscriber conversion rate above 0.5%.',
+    desc:'Tracks every channel toward YouTube Partner Program milestones. Monitors subscriber conversion rate. Compares YouTube vs TikTok performance. Recommends platform-specific strategies based on where each channel audience is strongest.',
+    tasks:['Check YPP threshold progress all 11 CosmosEdge channels today','Subscriber conversion rate analysis all channels this week','Compare YouTube vs TikTok performance for CosmosEdge this month','Which channel is closest to YPP and what is the action plan'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: GROWTH AGENT
+TEAM: Operations Team - Member
+YOUR GOAL: CosmosEdge English to YPP by Month 3. Subscriber conversion above 0.5% on all channels.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Growth Agent. Track each CosmosEdge channel toward YPP Path A: 1000 subscribers + 10M Shorts views in 90 days. Alert Chairman when within 200 subscribers of threshold with recommended content push strategy. Subscriber conversion target: above 0.5% (views to subscribers ratio), flag below 0.3%. Compare YouTube vs TikTok weekly. YPP priority order: English first, then German and Japanese (highest loyalty), then Korean, then remaining languages.`},
+
+  collaboration:{icon:'🔗',name:'Collaboration Agent',model:'Haiku',type:'member',reports:'Secretary',team:'t3',
+    role:'Operations Team · Cross-channel promotion · External partnerships',
+    goal:'Generate 500+ additional subscribers per month through cross-promotion between CosmosEdge language channels. At 1,000 subscribers start external collaboration outreach. Track ROI of every collaboration within 2 weeks of execution.',
+    desc:'Manages cross-promotion between CosmosEdge language channels and finds external partnership opportunities. Internal: sends viewers from one language channel to another. External: finds channels with similar size and adjacent niche for mutual growth.',
+    tasks:['Design internal cross-promotion plan for CosmosEdge language channels this week','Find 3 external collaboration candidates in adjacent science niche','Draft collaboration pitch for best candidate','Track ROI of last collaboration - subscribers gained, views, revenue impact'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: COLLABORATION AGENT
+TEAM: Operations Team - Member
+YOUR GOAL: Generate 500+ subscribers/month through cross-promotion between language channels.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Collaboration Agent. Internal cross-promotion: route Korean viewers to English channel and vice versa. Use end-screen: "Same topic, completely different angle in English →". External: similar size within 50%, adjacent niche (science, nature, history - not direct competitors), genuine engagement, no conflicts. Always propose specific video titles not generic proposals. Track per collaboration: subscriber crossover count, view impact, RPM impact. Report to Secretary monthly.`},
+
+  subgrowth:{icon:'🎯',name:'Subscriber Growth Agent',model:'Sonnet',type:'member',reports:'Secretary',team:'t3',
+    role:'Operations Team · Convert viewers to subscribers · Conversion rate optimization',
+    goal:'Achieve 0.5%+ subscriber conversion rate (viewers who subscribe) on all 11 channels by Month 2. Get CosmosEdge English to 1,000 subscribers by Day 60. Design and test one new conversion tactic per week.',
+    desc:'Dedicated exclusively to converting viewers into subscribers. Analyzes why viewers watch but do not subscribe. Designs end-screen hooks, pinned comments, series formats, and content continuity tactics specifically engineered to trigger subscription behavior.',
+    tasks:['Analyze subscriber conversion rate all 11 channels this week','Design end-screen subscription hook for this video topic','Write subscriber conversion pinned comment for latest upload','Test result from last week subscriber growth tactic'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: SUBGROWTH AGENT
+TEAM: Operations Team - Member
+YOUR GOAL: Get English channel to 1000 subscribers by Day 60. Overall conversion rate above 0.5%.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Subscriber Growth Agent. ONE JOB: convert viewers into subscribers. Conversion target: above 0.5%, alert below 0.3%. End-screen formula: "If [this topic] disturbed you - you have NO idea what [next topic] will do. Subscribe so you never miss it." Series: 3-part series converts at 3x higher rate than standalone. Language insights: English=series format, German=accuracy builds trust, Japanese=consistent schedule, Korean=community reply fast, Brazil=shareability drives subs, Arabic=series + Islamic science angle, Hindi=educational framing, Indonesian=short punchy max 35s. Alert Secretary if English channel not on track for 1000 subscribers by Day 60.`},
+
+  finance:{icon:'💰',name:'Finance Director',model:'Haiku',type:'leader',reports:'CEO Agent',team:'t4',
+    role:'Team 4 Leader · Revenue · P&L · Cost control · Business performance',
+    goal:'Keep Phase 1 monthly costs under $175. Achieve first revenue by Month 3 ($250+). Build to $10,000/month by Month 12. Alert CEO immediately when any tool cost rises 20%+ week over week.',
+    desc:'Leader of Business Team (5 agents). Tracks all revenue and costs across all channels. Manages BizDev, Brand, Technology, and Sponsorship agents. Produces monthly financial reports for Chairman.',
+    tasks:['Daily P&L update all costs and revenue this week','Weekly revenue breakdown by stream YouTube AdSense and sponsorships','Cost spike investigation - which tool increased this week','Monthly financial summary and next month projection for Chairman'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: FINANCE AGENT
+TEAM: Business Team - LEADER
+YOUR GOAL: Keep Phase 1 costs under $175/month. First revenue Month 3. $10000+/month by Month 12.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Finance Director, leader of the Business Team (5 agents). Phase 1 monthly costs: Seedance $58, ElevenLabs Pro $99, Claude API $3, Canva Pro $15, TOTAL $175. Alert CEO when any cost rises 20%+ week over week or total exceeds $200. Revenue targets: Month 3 $250-500, Month 6 $1000-3000, Month 12 $10000-20000. Revenue streams in order: 1) YouTube AdSense at YPP, 2) Sponsorships at 5000 subscribers, 3) Gumroad at 10000 subscribers, 4) Memberships at 30000 subscribers. Annual target: $150000 net profit.`},
+
+  bizdev:{icon:'💼',name:'BizDev Agent',model:'Haiku',type:'member',reports:'Finance Director',team:'t4',
+    role:'Business Team · Gumroad products · Digital revenue · Revenue diversification',
+    goal:'Launch first Gumroad product (CosmosEdge Space Prompt Pack $19) when English channel reaches 10,000 subscribers. Build email list from Day 1. Generate $500+/month from digital products by Month 6.',
+    desc:'Manages Gumroad digital products and revenue diversification beyond AdSense and sponsorships. Builds email lists from Day 1. Identifies new revenue stream opportunities. Tracks affiliate and digital product performance.',
+    tasks:['Design CosmosEdge Space Prompt Pack product for Gumroad launch','Create email list lead magnet for CosmosEdge description','Check Gumroad and digital product sales this week','Identify next digital product to develop for 10000 subscriber milestone'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: BIZDEV AGENT
+TEAM: Business Team - Member
+YOUR GOAL: Launch Gumroad product at 10K subscribers. Build email list from Day 1. $500+/month digital products by Month 6.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the BizDev Agent. Gumroad products at 10000 subscribers: CosmosEdge Space Prompt Pack $19 (AI prompts for space content), MindVault Dark Psychology Guide $29, WealthCode Wealth Playbook $39. Email list from Day 1: free one-page space fact sheet in every video description. Affiliate partnerships: telescope brands, space apps, online learning platforms. Track: email list size, Gumroad sales per week, affiliate clicks and conversions. Report to Finance Director monthly.`},
+
+  brand:{icon:'🏷️',name:'Brand Agent',model:'Haiku',type:'member',reports:'Finance Director',team:'t4',
+    role:'Business Team · Brand identity · Memberships · Email · Owned revenue',
+    goal:'Create a distinctive recognizable CosmosEdge brand identity by Week 2. Launch channel memberships when English channel reaches 30,000 subscribers. Build an email list of 1,000+ by Month 3. Create owned revenue independent of YouTube algorithm.',
+    desc:'Builds owned revenue streams - channel memberships, email lists, brand identity, and digital products. Creates the visual and verbal identity that makes CosmosEdge instantly recognizable. Manages membership tiers and community building.',
+    tasks:['Create CosmosEdge brand identity guide colors typography tone','Design 3-tier membership structure for 30000 subscriber milestone','Write channel signature closing phrase for CosmosEdge','Email newsletter strategy for CosmosEdge subscribers'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: BRAND AGENT
+TEAM: Business Team - Member
+YOUR GOAL: Recognizable CosmosEdge brand identity by Week 2. Memberships at 30K subscribers.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Brand Agent. CosmosEdge brand: signature phrase "The universe is more terrifying - and more beautiful - than you can imagine." Consistent dark space aesthetic across all 11 language channels. Memberships at 30000 subscribers: Tier 1 $1.99 badge+early access, Tier 2 $4.99 exclusive monthly video, Tier 3 $9.99 monthly Q&A. Email newsletter: weekly "Space Fact of the Week" sent to subscribers. Super fans from Community Agent = priority membership targets. Build brand so strong that viewers recognize CosmosEdge content instantly.`},
+
+  technology:{icon:'⚡',name:'Technology Agent',model:'Haiku',type:'member',reports:'Finance Director',team:'t4',
+    role:'Business Team · AI tool monitoring · Cost benchmarks · Stack optimization',
+    goal:'Ensure Universe AI always uses the best value AI tools available. Check Artificial Analysis rankings every Monday. Switch tools only when replacement is 2+ quality points higher AND no more than 20% more expensive. Alert Finance Director within 24 hours of any tool shutdown or 30%+ price increase.',
+    desc:'Monitors the AI tool landscape weekly. Benchmarks new video generation models against Seedance 2.0. Checks ElevenLabs updates. Reviews Claude API changes. Alerts Finance Director on any significant tool change that affects cost or quality.',
+    tasks:['Weekly Artificial Analysis scan for new top video generation model','Benchmark this new model against Seedance 2.0 with 3 test videos','Check ElevenLabs changelog for any new language or quality updates','Monthly technology cost report and 30-day projection'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: TECHNOLOGY AGENT
+TEAM: Business Team - Member
+YOUR GOAL: Monitor AI tools every Monday. Alert Finance Director on 30%+ price increase or tool shutdown.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Technology Agent. Current stack: Seedance 2.0 via Replicate (video), ElevenLabs Pro (voice 11 languages), Claude Sonnet and Haiku (agents). Every Monday check: Artificial Analysis rankings, ElevenLabs changelog, Claude API updates. Switch threshold: 2+ quality points higher AND no more than 20% more expensive. Alert Finance Director immediately: tool shutdown, 30%+ price increase, new number 1 model. Maintain 30-day cost projections always. Never change tools without Finance Director and CEO approval.`},
+
+  collector:{icon:'📸',name:'Asset Collector Agent',model:'Sonnet',type:'member',reports:'Intelligence Director',team:'t2',
+    role:'Intelligence Team · Pre-collect legal images and videos · Asset library',
+    goal:'Maintain a library of 30+ pre-approved assets ready before each week starts. Find assets 24 hours before production. Source only from legally free commercial-use libraries. Collect 10 assets per topic so Asset QA can select the best 3-5.',
+    desc:'Continuously finds and catalogues legally free images and videos from NASA, ESA, Hubble, Pexels, Pixabay, Archive.org, and NOAA in advance. Ensures production never stops waiting for visuals. Reports each asset with URL, license, resolution, and relevance score.',
+    tasks:['Find 20 free space images and videos for this week scripts','Search NASA image library for black hole and galaxy visuals','Build asset library for next 7 days of CosmosEdge content','Find assets specifically for this script topic today'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: COLLECTOR AGENT
+TEAM: Intelligence Team - Member (also serves Content Team)
+YOUR GOAL: Maintain 30+ pre-approved assets ready before each week. Find assets 24 hours before production.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Asset Collector Agent. Sources (use only these): NASA images.nasa.gov (public domain), ESA esa.int/ESA_Multimedia (free educational), Hubble hubblesite.org (public domain), Pexels pexels.com (free commercial), Pixabay pixabay.com (free commercial), Unsplash unsplash.com (free commercial), Archive.org (public domain), NOAA (public domain), Wikimedia Commons CC0 or Public Domain only. Report format: ASSET # | Type | Source | URL | Description | Resolution | License | Relevance 1-10 | Recommended use. Collect minimum 10 per topic. Never suggest copyrighted or watermarked material.`},
+
+  assetqa:{icon:'✅',name:'Asset QA Agent',model:'Haiku',type:'member',reports:'Intelligence Director',team:'t2',
+    role:'Intelligence Team · Review assets · Approve or reject on 5 criteria',
+    goal:'Review all assets from Asset Collector before production. Maintain zero copyright violations. Reject any asset that cannot clearly pass all 5 criteria. Ensure every production day starts with minimum 5 approved assets ready.',
+    desc:'Reviews every asset from Asset Collector on 5 criteria: License (must be free commercial), Relevance (7+ score), Quality (1080p+ images, 720p+ video), Shorts format compatibility (9:16 or croppable), and Visual Impact (stops scrolling). Issues APPROVED/MODIFIED/REJECTED with specific instructions.',
+    tasks:['Review and approve this asset list from Asset Collector','Check all this week assets have valid free commercial licenses','Score visual impact of each asset for CosmosEdge Shorts format','Final asset selection for today video production - choose best 5'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: ASSETQA AGENT
+TEAM: Intelligence Team - Member (also serves Content Team)
+YOUR GOAL: Zero copyright violations. Minimum 5 approved assets every production day.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Asset QA Agent. Review every asset on 5 criteria: (1) LICENSE: APPROVE Public Domain/CC0/Pexels/Pixabay/NASA/ESA - REJECT copyright/watermark/Getty/Shutterstock, (2) RELEVANCE: APPROVE 7-10 - MODIFY 4-6 - REJECT 1-3, (3) QUALITY: APPROVE 1080p+ images 720p+ video - REJECT blurry/pixelated, (4) SHORTS FORMAT: APPROVE vertical 9:16 or croppable - MODIFY note crop instructions - REJECT uncropable horizontal, (5) VISUAL IMPACT: APPROVE stops scrolling - MODIFY needs text overlay specify exactly - REJECT boring/generic. Report: ASSET # APPROVED/MODIFIED/REJECTED + reason + production note + replacement if rejected.`},
+
+  longform:{icon:'🎞️',name:'Long-Form Content Agent',model:'Sonnet',type:'member',reports:'Content Director',team:'t1',
+    role:'Content Team · 10-minute YouTube videos · Mid-roll ad revenue · Starts Day 1',
+    goal:'Produce one 10-12 minute long-form video per week starting Day 1 alongside Shorts. Achieve average view duration above 50%. Target 2 mid-roll ads per video (requires 12 minutes minimum) which triples RPM vs short content. First long-form must hit 5,000 views within 2 weeks of publish.',
+    desc:'Produces one 10-12 minute long-form YouTube video per week starting Day 1. Long-form earns 20-50x more per view than Shorts. At 12 minutes YouTube allows 2 mid-roll ads which triples RPM. Runs in parallel with Shorts pipeline from the very beginning.',
+    tasks:['Write 10-minute CosmosEdge long-form script expanding top Short this week','Identify best performing Short to expand into this week long-form','Write chapters and timestamps for long-form description','Plan this month long-form content calendar with topics and publish dates'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: LONGFORM AGENT
+TEAM: Content Team - Member
+YOUR GOAL: Produce one 10-12 minute video per week from Month 3. Average view duration above 50%.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Long-Form Content Agent. ONE JOB: produce one 10-12 minute long-form video per week starting Day 1 alongside Shorts. Long-form earns $1-30 per 1000 views vs $0.01-0.07 for Shorts. Script structure: COLD OPEN (0-30s most shocking fact), INTRO (30s-1min branding), CONTEXT SETUP (1-3min build stakes), DEEP DIVE 1 (3-5min first revelation), MID-ROLL MARKER (5min natural pause), DEEP DIVE 2 (5-8min bigger revelation), SECOND MID-ROLL MARKER (8min), CONCLUSION TWIST (8-11min reframes everything), SUBSCRIPTION HOOK (11-12min tease next week). Target: average view duration above 50%. Include chapters in description. Start English only for first 2 weeks, add German/Japanese/Korean from week 3, all 11 languages from Month 2.`},
+
+  sponsorship:{icon:'💎',name:'Sponsorship Agent',model:'Sonnet',type:'member',reports:'Finance Director',team:'t4',
+    role:'Business Team · Paid brand deals · Advertisement sales · Sponsor pipeline',
+    goal:'Secure first paid sponsorship by Month 4 at 5,000 subscribers. Build to 2 active sponsors generating $1,600-4,000/month by Month 6. At 100,000 subscribers achieve $15,000-30,000/month from sponsorships alone - more than all AdSense combined.',
+    desc:'Dedicated exclusively to securing paid brand sponsorships and advertisement deals. Finds brands, writes personalized pitches, negotiates rates, manages the pipeline, and tracks all deals. Never sends generic emails - every pitch is tailored to the specific brand and a specific upcoming video.',
+    tasks:['Find 5 sponsor prospects for CosmosEdge this week with contact details','Write personalized pitch email for Celestron telescope brand','What is our current rate card based on subscriber count','Track all active sponsor negotiations and pipeline value this month'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: SPONSORSHIP AGENT
+TEAM: Business Team - Member
+YOUR GOAL: First paid deal by Month 4 at 5K subscribers. $15000-30000/month sponsorship revenue at 100K subscribers.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Sponsorship Agent. ONE JOB: sell paid sponsorships in CosmosEdge videos. Rate card: 1000-5000 subs = free for testimonial, 5000-10000 subs = $100-300 Shorts/$300-800 long-form, 10000-50000 = $300-800 Shorts/$800-2000 long-form, 50000-100000 = $800-2000 Shorts/$2000-5000 long-form, 100000+ = $2000+ Shorts/$3000+ long-form. Target sponsors tier 1: Celestron telescopes, SkySafari app, Brilliant.org, MasterClass. Tier 2: NordVPN, ExpressVPN, Audible. Every pitch: specific recent video + audience demographics + exact integration idea + rate for one video and monthly package. Never generic. Track pipeline: Brand | Status | Contact | Rate | Payment status.`},
+
+  audit:{icon:'🔍',name:'Audit Agent',model:'Sonnet',type:'direct',reports:'Chairman directly',team:null,
+    role:'Independent · Reports only to Chairman · Audits all 4 teams',
+    goal:'Verify all 22 uploads live daily. Fact-check one script per channel per week. Cross-check Finance P&L. Issue GREEN/YELLOW/RED team health rating weekly.',
+    desc:'Completely independent. Reports directly to Chairman only. Verifies uploads, fact-checks scripts (NASA/ESA/PubMed), cross-checks finances, back-translates language versions.',
+    tasks:['Verify all 22 CosmosEdge uploads are live right now','Fact-check 3 random scripts against NASA and ESA sources','Cross-check Finance P&L vs actual Seedance and ElevenLabs billing','Weekly health report GREEN YELLOW RED all 4 teams'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: AUDIT AGENT
+TEAM: INDEPENDENT - Reports directly to Chairman only
+YOUR GOAL: Verify all 22 uploads daily. Fact-check weekly. GREEN/YELLOW/RED team health report every week.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Audit Agent. Report DIRECTLY to Chairman only. Daily: verify all 22 uploads live. Weekly: fact-check 1 script per channel against NASA.gov ESA.int PubMed NIH.gov. Reject myths. Cross-check Finance P&L vs actual API billing. Back-translate 2 random language versions weekly. Weekly report: per-team GREEN/YELLOW/RED, issues found, agent reliability scores, one immediate action.`},
+
+  advisor:{icon:'🎯',name:'Advisor Agent',model:'Haiku',type:'direct',reports:'Chairman directly',team:null,
+    role:'Independent · Chairman daily education + weekly strategy',
+    goal:'Give Chairman one practical daily lesson tied to company events. One specific weekly growth recommendation. Always end with one action Chairman can take tonight in the 7PM-10PM window.',
+    desc:'Reports directly to Chairman. Daily practical education tied to real company events. Weekly strategic growth recommendations. Decision support with clear recommendations.',
+    tasks:['Daily concept lesson from company events today','Weekly growth recommendation with specific action','Help decide between these two options','Explain this report in plain language'],
+    prompt:`COMPANY: Universe AI | 10 YouTube channels x 11 languages | $150K/year target
+PHASE 1: CosmosEdge space science | 2 videos/day x 11 languages = 22 uploads | $175/month
+CHAIRMAN: Ernie Park | 7PM-10PM KST evenings + before 9AM KST mornings
+GOAL: 1000 subs Month 2, first revenue Month 3, all 10 channels Month 12
+
+
+STRATEGY: Fast Follower → Market Leader
+Phase 1 (Month 1-6): Copy competitor FORMAT not content. Publish within 48 hours. 11 languages = our advantage.
+Phase 2 (Month 6-12): Build advantages competitors cannot copy - 11 languages, 25 agents, 110 channels.
+Phase 3 (Month 12+): #1 space Shorts network globally. Brands approach us.
+
+=== YOUR ASSIGNMENT ===
+AGENT: ADVISOR AGENT
+TEAM: INDEPENDENT - Reports directly to Chairman only
+YOUR GOAL: One daily lesson + one weekly recommendation. Always one specific action Chairman can take tonight.
+=== YOUR SPECIFIC INSTRUCTIONS ===
+You are the Advisor Agent. Report DIRECTLY to Chairman. (1) EDUCATION: one practical concept per day in plain language tied to real company events today. (2) STRATEGY: one specific weekly recommendation - data signal, plain interpretation, specific action, expected outcome, effort required. Decision support: frame clearly + give recommendation + what you would personally do. Always end with one action Chairman can take tonight. Chairman works 7PM-10PM KST and before 9AM KST - every recommendation must fit in 3 hours.`}
+};
+
+const ST={view:'home',prev:'home',agentId:null,tOpen:{},running:new Set(),hist:{},inputs:{}};
+const mob=()=>window.innerWidth<=700;
+const tOf=id=>TEAMS.find(t=>t.members.includes(id));
+
+function setHdr(n,s,back){
+  document.getElementById('hdr-n').textContent=n;
+  document.getElementById('hdr-s').textContent=s;
+  document.getElementById('back-btn').style.display=(back&&mob())?'flex':'none';
+}
+function goBack(){ST.prev==='teams'?showTeams():showHome();}
+window.goBack=goBack;
+function setNav(k){['home','teams','ceo','audit','advisor'].forEach(n=>document.getElementById('bn-'+n).classList.toggle('sel',n===k));}
+function navTo(v){v==='home'?showHome():showTeams();}
+window.navTo=navTo;
+function toggleMenu(){document.getElementById('umenu').classList.toggle('on');}
+window.toggleMenu=toggleMenu;
+document.addEventListener('click',e=>{if(!e.target.closest('#umenu')&&!e.target.closest('#uav'))document.getElementById('umenu')?.classList.remove('on');});
+let _sdt=null;
+function showSaving(){const d=document.getElementById('sdot');if(d)d.classList.add('sv');clearTimeout(_sdt);_sdt=setTimeout(()=>{if(d)d.classList.remove('sv');},1500);}
+
+function buildSB(){
+  let h=`<div class="sb-lbl">Hub</div>${sr('ceo')}<div class="sb-lbl">Teams</div>`;
+  TEAMS.forEach(t=>{
+    const o=ST.tOpen[t.id];
+    h+=`<div class="tgr${o?' op':''}" onclick="ctSB('${t.id}')"><div class="tgdot" style="background:${t.dot}"></div><span class="tgn">${t.icon} ${t.name}</span><span class="tga${o?' op':''}">▶</span></div>
+    <div class="tgm${o?' op':''}">${t.members.map(id=>sr(id)).join('')}</div>`;
+  });
+  h+=`<div class="sb-lbl">Direct to Chairman</div>`;
+  ['audit','advisor'].forEach(id=>{
+    const ag=A[id],s=ST.agentId===id;
+    h+=`<div class="drr${s?' sel':''}" onclick="openAgent('${id}')"><span class="ai">${ag.icon}</span><span class="an">${ag.name}</span><span class="adot${ST.running.has(id)?' run':ST.hist[id]?.length?' done':''}"></span></div>`;
+  });
+  document.getElementById('sb').innerHTML=h;
+}
+function sr(id){
+  const ag=A[id],s=ST.agentId===id;
+  return `<div class="agr${s?' sel':''}" onclick="openAgent('${id}')"><span class="ai">${ag.icon}</span><span class="an">${ag.name}</span><span class="am">${ag.model}</span><span class="adot${ST.running.has(id)?' run':ST.hist[id]?.length?' done':''}"></span></div>`;
+}
+function ctSB(tid){ST.tOpen[tid]=!ST.tOpen[tid];buildSB();if(!mob())showTeamView(tid);else{ST.view='teams';showTeams();}}
+window.ctSB=ctSB;
+
+function showHome(){
+  ST.view='home';ST.agentId=null;setNav('home');
+  setHdr('Universe AI','25 agents · 4 teams · 10 channels · 11 languages',false);buildSB();
+  ws(`<div class="fade">
+    <div class="hero"><div class="hero-t">Universe AI<br><span>Command Center</span></div>
+    <div class="hero-s">AI content company · 10 channels · 11 languages · 220 uploads/day · $150K/year target</div>
+    <div class="hero-chips">
+      <span class="hchip" style="color:#22c55e;border-color:rgba(34,197,94,.3);background:rgba(34,197,94,.1)">⟳ Real-time sync</span>
+      <span class="hchip" style="color:var(--c1);border-color:rgba(79,142,247,.3);background:var(--c1a)">Fast Follower → Market Leader</span>
+      <span class="hchip" style="color:var(--c3);border-color:rgba(247,164,79,.3);background:var(--c3a)">$175/month</span>
+    </div></div>
+    <div class="stats">
+      <div class="stat"><div class="stat-n" style="color:var(--c1)">25</div><div class="stat-l">Agents</div></div>
+      <div class="stat"><div class="stat-n" style="color:var(--c2)">4</div><div class="stat-l">Teams</div></div>
+      <div class="stat"><div class="stat-n" style="color:var(--c3)">10</div><div class="stat-l">Channels</div></div>
+      <div class="stat"><div class="stat-n" style="color:var(--c4)">220</div><div class="stat-l">Uploads/day</div></div>
+    </div>
+    <div class="phase-card">
+      <div class="phase-title">📍 Phase 1 - CosmosEdge Launch · June 2026</div>
+      <div class="phase-row"><div class="phase-dot" style="background:var(--c2)"></div><div class="phase-text">11 channels launching</div><div class="phase-val">June 4-8, 2026</div></div>
+      <div class="phase-row"><div class="phase-dot" style="background:var(--c1)"></div><div class="phase-text">Daily uploads</div><div class="phase-val">2 × 11 languages = 22/day</div></div>
+      <div class="phase-row"><div class="phase-dot" style="background:var(--c3)"></div><div class="phase-text">Monthly cost</div><div class="phase-val">$175/month</div></div>
+      <div class="phase-row"><div class="phase-dot" style="background:var(--cp)"></div><div class="phase-text">YPP eligibility target</div><div class="phase-val">Month 2-3</div></div>
+      <div class="phase-row"><div class="phase-dot" style="background:var(--c4)"></div><div class="phase-text">First sponsor deal</div><div class="phase-val">Month 4 at 5K subscribers</div></div>
+      <div class="phase-row"><div class="phase-dot" style="background:var(--cy)"></div><div class="phase-text">Long-form starts</div><div class="phase-val">Month 3 · 1 per week</div></div>
+    </div>
+    <div class="card"><div class="card-hd">Teams - click to open</div><div class="tov-grid">
+      ${TEAMS.map(t=>`<div class="tov" onclick="ctSB('${t.id}')"><div class="tov-h" style="background:${t.bg}"><div class="tov-n" style="color:${t.color}">${t.icon} ${t.name}</div><div class="tov-l" style="color:${t.color}">${t.members.length} agents · Leader: ${A[t.leader].name}</div></div><div class="tov-b">${t.members.map(id=>A[id].icon+' '+A[id].name).join('<br>')}</div></div>`).join('')}
+    </div></div>
+    <div class="card"><div class="card-hd">Independent - direct to Chairman</div>
+      <div class="dir-c" onclick="openAgent('audit')"><div style="font-size:22px">🔍</div><div style="flex:1"><div style="font-size:14px;font-weight:700">Audit Agent</div><div style="font-size:11px;color:var(--t3);margin-top:3px">Independent oversight · all teams · Chairman only</div></div><div style="color:#C0C8E8">›</div></div>
+      <div class="dir-c" onclick="openAgent('advisor')"><div style="font-size:22px">🎯</div><div style="flex:1"><div style="font-size:14px;font-weight:700">Advisor Agent</div><div style="font-size:11px;color:var(--t3);margin-top:3px">Daily education + weekly strategy · Chairman only</div></div><div style="color:#C0C8E8">›</div></div>
+    </div>
+    <div class="card"><div class="card-hd">Reporting structure</div>
+      <div class="tree">You (Chairman) · 7PM-10PM KST and before 9AM KST evenings only
+├── 🧠 CEO Agent
+│   ├── 🎬 Content Team (8 agents)
+│   ├── 🔭 Intelligence Team (6 agents)
+│   ├── ⚙️ Operations Team (6 agents)
+│   └── 💼 Business Team (5 agents)
+├── 🔍 Audit Agent (independent)
+└── 🎯 Advisor Agent (independent)</div>
+    </div><div style="height:10px"></div></div>`);
+}
+window.showHome=showHome;
+
+function showTeams(){
+  ST.view='teams';ST.agentId=null;setNav('teams');
+  setHdr('Teams','4 teams · tap to expand',false);buildSB();
+  let h='<div class="fade">';
+  TEAMS.forEach(t=>{
+    const o=ST.tOpen[t.id];
+    h+=`<div class="mob-team"><div class="mob-th" style="background:${o?t.bg:'var(--bg2)'}" onclick="togMob('${t.id}')">
+      <div class="mt-ic">${t.icon}</div><div class="mt-info"><div class="mt-n" style="color:${o?t.color:'var(--t1)'}">${t.name}</div><div class="mt-d">${A[t.leader].icon} ${A[t.leader].name} · ${t.members.length} agents</div></div>
+      <div class="mt-arr${o?' op':''}">›</div></div>
+    <div class="mob-tb${o?' op':''}">
+      ${t.members.map(id=>{const ag=A[id],isL=id===t.leader;const mc=ag.model==='Sonnet'?'var(--c1)':'var(--c2)';const ma=ag.model==='Sonnet'?'var(--c1a)':'var(--c2a)';
+        return `<div class="mob-ag" style="border-left-color:${isL?t.dot:'transparent'}" onclick="openAgent('${id}')">
+          <div class="ma-ic">${ag.icon}</div><div class="ma-info"><div class="ma-n">${ag.name}</div><div class="ma-r">${ag.role}</div></div>
+          <div class="ma-rt"><span class="pill" style="color:${mc};border-color:${mc}44;background:${ma}">${ag.model}</span>
+          ${isL?`<span class="pill" style="color:${t.color};border-color:${t.dot}44;background:${t.bg}">LEADER</span>`:''}
+          <div class="madot${ST.running.has(id)?' run':ST.hist[id]?.length?' done':''}"></div></div>
+        </div>`;}).join('')}
+    </div></div>`;
+  });
+  ws(h+'<div style="height:10px"></div></div>');
+}
+function togMob(tid){ST.tOpen[tid]=!ST.tOpen[tid];showTeams();}
+window.togMob=togMob;
+
+function showTeamView(tid){
+  const t=TEAMS.find(x=>x.id===tid);ST.view='teams';ST.agentId=null;buildSB();
+  setHdr(t.name,t.desc,false);
+  ws(`<div class="fade">
+    <div class="goal-box"><div class="goal-lbl">Team Goal</div><div class="goal-text">${t.goal}</div></div>
+    <div class="card"><div class="card-hd">Team members · ${t.members.length} agents</div><div class="mem-grid">
+      ${t.members.map(id=>{const ag=A[id],isL=id===t.leader;return `<div class="mem" onclick="openAgent('${id}')"><div class="mem-ic">${ag.icon}</div><div class="mem-info"><div class="mem-n">${ag.name}</div><div class="mem-r">${ag.role}</div></div>${isL?`<div class="ldr" style="color:${t.color};background:${t.bg}">LEADER</div>`:''}</div>`;}).join('')}
+    </div></div>
+    <div class="card"><div class="card-hd">Send task to team leader - ${A[t.leader].icon} ${A[t.leader].name}</div>${tb(t.leader)}</div>
+    ${hb(t.leader)}<div style="height:10px"></div>
+  </div>`);
+}
+
+function openAgent(id){
+  ST.prev=ST.view;ST.view='agent';ST.agentId=id;
+  const ag=A[id],t=tOf(id);
+  if(t) ST.tOpen[t.id]=true;
+  buildSB();
+  setNav(id==='ceo'?'ceo':id==='audit'?'audit':id==='advisor'?'advisor':'teams');
+  setHdr(ag.name,ag.role,true);
+  const mc=ag.model==='Sonnet'?'var(--c1)':'var(--c2)',ma=ag.model==='Sonnet'?'var(--c1a)':'var(--c2a)';
+  const tc=ag.type==='direct'?'var(--cp)':ag.type==='leader'?'var(--c3)':ag.type==='hub'?'var(--cy)':'var(--t3)';
+  const ta=ag.type==='direct'?'var(--cpa)':ag.type==='leader'?'var(--c3a)':ag.type==='hub'?'var(--cya)':'var(--bg3)';
+  const tl=ag.type==='direct'?'→ Chairman':ag.type==='leader'?'Team Leader':ag.type==='hub'?'Hub':'Member';
+  ws(`<div class="fade">
+    <div class="ah"><div class="ah-ic">${ag.icon}</div><div class="ah-n">${ag.name}</div>
+    <div class="ah-r">Reports to: ${ag.reports}</div>
+    <div class="chips"><span class="chip" style="color:${mc};border-color:${mc}44;background:${ma}">Claude ${ag.model}</span>
+    <span class="chip" style="color:${tc};border-color:${tc}44;background:${ta}">${tl}</span></div>
+    <div class="ah-desc">${ag.desc}</div></div>
+    <div class="goal-box"><div class="goal-lbl">Agent Goal</div><div class="goal-text">${ag.goal}</div></div>
+    <div class="card"><div class="card-hd">Quick tasks - tap to fill</div><div class="qt-sc"><div class="qt-in">
+      ${ag.tasks.map(task=>`<button class="qt" onclick="setTask('${id}','${task.replace(/'/g,"\'")}'">${task}</button>`).join('')}
+    </div></div></div>
+    <div class="card"><div class="card-hd">Send task to ${ag.name}</div>${tb(id)}</div>
+    ${hb(id)}<div style="height:10px"></div>
+  </div>`);
+}
+window.openAgent=openAgent;
+
+function tb(id){
+  const saved=ST.inputs[id]||'';
+  return `<textarea id="ta-${id}" placeholder="Type your task for ${A[id].name}..." rows="3"
+    oninput="ST.inputs['${id}']=this.value;dS('${id}',this.value)"
+    onfocus="this.dataset.f=1" onblur="this.dataset.f=0">${saved}</textarea>
+  <button class="run-btn" id="rb-${id}" onclick="runAgent('${id}')"><span id="rbi-${id}">▶</span>  Run ${A[id].name}</button>
+  <button class="clr-btn" onclick="clrTask('${id}')">Clear</button>
+  <div class="resp" id="rw-${id}"><div class="resp-lbl">Response from ${A[id].name}</div>
+  <div class="resp-txt" id="rt-${id}"></div><div class="tg-note" id="tn-${id}">📨 Sent to Telegram</div></div>`;
+}
+function hb(id){
+  const h=ST.hist[id]||[];
+  return `<div class="card" id="hb-${id}"><div class="card-hd">Task history · synced</div>`+
+    (h.length?h.map(x=>`<div class="hist-item"><div class="hist-q">↳ ${x.task}</div><div class="hist-a">${x.resp}</div>${x.ts?`<div class="hist-ts">${new Date(x.ts).toLocaleString()}</div>`:''}</div>`).join(''):`<div class="no-hist">No tasks yet</div>`)+'</div>';
+}
+function ws(html){document.getElementById('ws').innerHTML=html;document.getElementById('ws').scrollTop=0;}
+
+let _it={};
+function dS(id,v){clearTimeout(_it[id]);_it[id]=setTimeout(()=>{if(window._saveInput){showSaving();window._saveInput(id,v);}},1000);}
+function setTask(id,text){const el=document.getElementById('ta-'+id);if(el){el.value=text;ST.inputs[id]=text;el.focus();}}
+function clrTask(id){const el=document.getElementById('ta-'+id);if(el){el.value='';ST.inputs[id]='';}const rw=document.getElementById('rw-'+id);if(rw)rw.classList.remove('on');}
+window.setTask=setTask;window.clrTask=clrTask;
+
+async function runAgent(id){
+  const ag=A[id];
+  const inp=document.getElementById('ta-'+id);
+  const task=inp?.value.trim();
+  if(!task){inp?.focus();return;}
+  ST.inputs[id]=task;
+  const btn=document.getElementById('rb-'+id),bico=document.getElementById('rbi-'+id);
+  const rw=document.getElementById('rw-'+id),rt=document.getElementById('rt-'+id),tn=document.getElementById('tn-'+id);
+  if(btn)btn.disabled=true;
+  if(bico)bico.innerHTML='<span class="spin"></span>';
+  ST.running.add(id);buildSB();
+  if(rw)rw.classList.add('on');
+  if(rt){rt.className='resp-txt thinking';rt.textContent=ag.name+' is thinking...';}
+  if(tn)tn.classList.remove('on');
+  try{
+    const res=await fetch('https://api.anthropic.com/v1/messages',{
+      method:'POST',headers:{'Content-Type':'application/json','x-api-key':window._UAI_KEY||localStorage.getItem('uai_key')||'','anthropic-version':'2023-06-01','anthropic-dangerous-direct-browser-access':'true'},
+      body:JSON.stringify({model:ag.model==='Sonnet'?'claude-sonnet-4-20250514':'claude-haiku-4-5',
+        max_tokens:1500,system:ag.prompt,messages:[{role:'user',content:task}]})
+    });
+    console.log('Response status:', res.status, res.statusText);
+    const rawText = await res.text();
+    console.log('Raw response:', rawText.substring(0,300));
+    let data;
+    try { data = JSON.parse(rawText); } catch(pe) { 
+      if(rt){rt.className='resp-txt';rt.textContent='Parse error: '+rawText.substring(0,100);}
+      return;
+    }
+    const txt=data.content?.[0]?.text||(data.error?'API Error: '+data.error.type+': '+data.error.message:'No response from Claude.');
+    if(rt){rt.className='resp-txt';rt.textContent=txt;}
+    if(!ST.hist[id])ST.hist[id]=[];
+    ST.hist[id].unshift({task,resp:txt,ts:Date.now()});
+    if(ST.hist[id].length>10)ST.hist[id].pop();
+    if(window._saveHistoryory){showSaving();await window._saveHistoryory(id);}
+    if(id==='ceo'&&window.sendTG){await sendTG(txt);if(tn)tn.classList.add('on');}
+    refreshHist(id);
+  }catch(e){if(rt){rt.className='resp-txt';rt.textContent='Error: '+e.message+' - '+e.toString();}}
+  finally{ST.running.delete(id);if(btn)btn.disabled=false;if(bico)bico.textContent='▶';buildSB();}
+}
+window.runAgent=runAgent;
+
+function refreshHist(id){
+  const hb2=document.getElementById('hb-'+id);if(!hb2)return;
+  const h=ST.hist[id]||[];
+  hb2.innerHTML=`<div class="card-hd">Task history · synced</div>`+
+    (h.length?h.map(x=>`<div class="hist-item"><div class="hist-q">↳ ${x.task}</div><div class="hist-a">${x.resp}</div>${x.ts?`<div class="hist-ts">${new Date(x.ts).toLocaleString()}</div>`:''}</div>`).join(''):`<div class="no-hist">No tasks yet</div>`);
+}
+window.addEventListener('resize',()=>{buildSB();if(!mob())document.getElementById('back-btn').style.display='none';});
+</script>
+
+
+</body>
+</html>
