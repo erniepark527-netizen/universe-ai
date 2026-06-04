@@ -1343,9 +1343,15 @@ async function runAgent(id){
       body:JSON.stringify({model:ag.model==='Sonnet'?'claude-sonnet-4-20250514':'claude-haiku-4-5',
         max_tokens:1500,system:ag.prompt,messages:[{role:'user',content:task}]})
     });
-    const data=await res.json();
-    console.log('API response:', JSON.stringify(data).substring(0,200));
-    const txt=data.content?.[0]?.text||(data.error?'API Error: '+data.error.message:'No response.');
+    console.log('Response status:', res.status, res.statusText);
+    const rawText = await res.text();
+    console.log('Raw response:', rawText.substring(0,300));
+    let data;
+    try { data = JSON.parse(rawText); } catch(pe) { 
+      if(rt){rt.className='resp-txt';rt.textContent='Parse error: '+rawText.substring(0,100);}
+      return;
+    }
+    const txt=data.content?.[0]?.text||(data.error?'API Error: '+data.error.type+': '+data.error.message:'No response from Claude.');
     if(rt){rt.className='resp-txt';rt.textContent=txt;}
     if(!ST.hist[id])ST.hist[id]=[];
     ST.hist[id].unshift({task,resp:txt,ts:Date.now()});
